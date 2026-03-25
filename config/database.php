@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'mongodb'),  // ← changed from 'sqlite'
 
     /*
     |--------------------------------------------------------------------------
@@ -31,6 +31,13 @@ return [
     */
 
     'connections' => [
+
+        // ← Added MongoDB connection
+        'mongodb' => [
+            'driver'   => 'mongodb',
+            'dsn'      => env('MONGO_URI'),
+            'database' => env('MONGO_DB', 'aerotrek'),
+        ],
 
         'sqlite' => [
             'driver' => 'sqlite',
