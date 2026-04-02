@@ -1,0 +1,1177 @@
+[
+  {
+    "carrier": "DHL",
+    "zone": "Zone 1",
+    "countries": [
+      "Bangladesh",
+      "Bhutan",
+      "Maldives",
+      "Nepal",
+      "Sri Lanka",
+      "UAE"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 2",
+    "countries": [
+      "Hong Kong",
+      "Malaysia",
+      "Singapore",
+      "Thailand"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 3",
+    "countries": [
+      "China"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 4",
+    "countries": [
+      "Bahrain",
+      "Jordan",
+      "Kuwait",
+      "Oman",
+      "Pakistan",
+      "Qatar",
+      "Saudi Arabia"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 5",
+    "countries": [
+      "Brunei",
+      "Cambodia",
+      "East Timor",
+      "Indonesia",
+      "Japan",
+      "South Korea",
+      "Laos",
+      "Macau",
+      "Myanmar",
+      "Philippines",
+      "Taiwan",
+      "Vietnam"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 6",
+    "countries": [
+      "New Zealand",
+      "Papua New Guinea"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 7",
+    "countries": [
+      "Austria",
+      "Belgium",
+      "Czech Republic",
+      "Denmark",
+      "France",
+      "Germany",
+      "Hungary",
+      "Ireland",
+      "Italy",
+      "Liechtenstein",
+      "Luxembourg",
+      "Monaco",
+      "Netherlands",
+      "Poland",
+      "Portugal",
+      "Romania",
+      "Slovakia",
+      "Spain",
+      "Sweden",
+      "Switzerland",
+      "UK"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 8",
+    "countries": [
+      "Andorra",
+      "Belarus",
+      "Bulgaria",
+      "Cyprus",
+      "Estonia",
+      "Finland",
+      "Gibraltar",
+      "Greece",
+      "Greenland",
+      "Iceland",
+      "Israel",
+      "Latvia",
+      "Lithuania",
+      "Malta",
+      "Norway",
+      "Slovenia",
+      "Turkey"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 9",
+    "countries": [
+      "Canada",
+      "Guam",
+      "Mexico",
+      "Puerto Rico",
+      "Virgin Islands"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 10",
+    "countries": [
+      "Argentina",
+      "Bolivia",
+      "Brazil",
+      "Chile",
+      "Colombia",
+      "Costa Rica",
+      "Cuba",
+      "Dominican Republic",
+      "Ecuador",
+      "El Salvador",
+      "Guatemala",
+      "Guyana",
+      "Haiti",
+      "Honduras",
+      "Jamaica",
+      "Nicaragua",
+      "Panama",
+      "Paraguay",
+      "Peru",
+      "Suriname",
+      "Trinidad and Tobago",
+      "Uruguay",
+      "Venezuela"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 11",
+    "countries": []
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 12",
+    "countries": [
+      "United States",
+      "USA"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 13",
+    "countries": [
+      "Egypt",
+      "Ghana",
+      "Kenya",
+      "Mauritius",
+      "Mozambique",
+      "Nigeria",
+      "South Africa",
+      "Sudan",
+      "Tanzania",
+      "Uganda",
+      "Zimbabwe"
+    ]
+  },
+  {
+    "carrier": "DHL",
+    "zone": "Zone 14",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone A",
+    "countries": [
+      "UAE"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone B",
+    "countries": [
+      "Bangladesh",
+      "Bhutan",
+      "Maldives",
+      "Nepal",
+      "Pakistan",
+      "Singapore",
+      "Sri Lanka"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone C",
+    "countries": [
+      "Afghanistan",
+      "Egypt",
+      "Iraq",
+      "Iran",
+      "Jordan",
+      "Lebanon",
+      "Myanmar",
+      "Palestine",
+      "Saudi Arabia",
+      "Syria",
+      "Turkmenistan",
+      "Yemen"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone D",
+    "countries": [
+      "China",
+      "Hong Kong",
+      "Thailand"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone E",
+    "countries": [
+      "American Samoa",
+      "Australia",
+      "Brunei",
+      "Cambodia",
+      "Cook Islands",
+      "East Timor",
+      "Fiji",
+      "French Polynesia",
+      "Guam",
+      "Indonesia",
+      "Laos",
+      "Macau",
+      "Malaysia",
+      "Marshall Islands",
+      "Micronesia",
+      "Mongolia",
+      "New Caledonia",
+      "New Zealand",
+      "Palau",
+      "Papua New Guinea",
+      "Philippines",
+      "Saipan",
+      "Samoa",
+      "Solomon Islands",
+      "South Korea",
+      "Taiwan",
+      "Tonga",
+      "Tuvalu",
+      "Vanuatu",
+      "Vietnam"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone F",
+    "countries": [
+      "Belgium",
+      "Denmark",
+      "France",
+      "Germany",
+      "Greenland",
+      "Italy",
+      "Liechtenstein",
+      "Luxembourg",
+      "Netherlands",
+      "Spain",
+      "Switzerland",
+      "UK"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone G",
+    "countries": [
+      "Mexico",
+      "United States",
+      "USA"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone H",
+    "countries": [
+      "Japan"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone I",
+    "countries": [
+      "Albania",
+      "Andorra",
+      "Armenia",
+      "Austria",
+      "Azerbaijan",
+      "Belarus",
+      "Bosnia",
+      "Bulgaria",
+      "Croatia",
+      "Cyprus",
+      "Czech Republic",
+      "Estonia",
+      "Finland",
+      "Georgia",
+      "Greece",
+      "Hungary",
+      "Iceland",
+      "Ireland",
+      "Israel",
+      "Kazakhstan",
+      "Latvia",
+      "Lithuania",
+      "Malta",
+      "Moldova",
+      "Monaco",
+      "Montenegro",
+      "Norway",
+      "Poland",
+      "Portugal",
+      "Romania",
+      "Russia",
+      "Serbia",
+      "Slovakia",
+      "Slovenia",
+      "Sweden",
+      "Turkey",
+      "Ukraine",
+      "Uzbekistan"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone J",
+    "countries": []
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone K",
+    "countries": [
+      "South Africa"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone L",
+    "countries": [
+      "Canada"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone M",
+    "countries": [
+      "Bahrain",
+      "Kuwait",
+      "Oman",
+      "Qatar"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone N",
+    "countries": [
+      "Djibouti",
+      "Eritrea",
+      "Ethiopia",
+      "Kenya",
+      "Mauritius",
+      "Sudan",
+      "Tanzania",
+      "Uganda"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone O",
+    "countries": [
+      "Algeria",
+      "Angola",
+      "Ghana",
+      "Ivory Coast",
+      "Libya",
+      "Morocco",
+      "Nigeria",
+      "Seychelles"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone P",
+    "countries": [
+      "Botswana",
+      "Lesotho",
+      "Namibia",
+      "Rwanda",
+      "Swaziland",
+      "Zambia",
+      "Zimbabwe"
+    ]
+  },
+  {
+    "carrier": "FedEx",
+    "zone": "Zone Q",
+    "countries": [
+      "Benin",
+      "Burkina Faso",
+      "Burundi",
+      "Cameroon",
+      "Cape Verde",
+      "Congo",
+      "Gabon",
+      "Gambia",
+      "Guinea-Bissau",
+      "Liberia",
+      "Madagascar",
+      "Malawi",
+      "Mali",
+      "Mauritania",
+      "Niger",
+      "Senegal",
+      "Sierra Leone",
+      "Togo",
+      "Tunisia"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "USA",
+    "countries": [
+      "United States",
+      "USA"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Canada",
+    "countries": [
+      "Canada"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Germany",
+    "countries": [
+      "Germany"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Belgium",
+    "countries": [
+      "Belgium"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "UK",
+    "countries": [
+      "UK",
+      "United Kingdom"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Denmark",
+    "countries": [
+      "Denmark"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Austria",
+    "countries": [
+      "Austria"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Norway",
+    "countries": [
+      "Norway"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Japan",
+    "countries": [
+      "Japan"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Hong Kong",
+    "countries": [
+      "Hong Kong"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Australia",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "New Zealand",
+    "countries": [
+      "New Zealand"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 1",
+    "countries": [
+      "Bangladesh",
+      "Bhutan",
+      "Maldives",
+      "Nepal",
+      "Sri Lanka"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 2",
+    "countries": [
+      "Malaysia",
+      "Singapore",
+      "Thailand"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 3",
+    "countries": [
+      "China"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 4",
+    "countries": [
+      "Bahrain",
+      "Jordan",
+      "Kuwait",
+      "Oman",
+      "Pakistan",
+      "Qatar",
+      "Saudi Arabia"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 6",
+    "countries": [
+      "New Zealand",
+      "Papua New Guinea"
+    ]
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 7",
+    "countries": []
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 8",
+    "countries": []
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 9",
+    "countries": []
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 10",
+    "countries": []
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 11",
+    "countries": []
+  },
+  {
+    "carrier": "UPS",
+    "zone": "Zone 12",
+    "countries": []
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "UAE-PPX",
+    "countries": [
+      "UAE"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "UAE-DPX",
+    "countries": [
+      "UAE"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--DPX--Metro",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--DPX--Main",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--DPX--Interstate",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--DPX--Remote",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--PPX--Metro",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--PPX--Main",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--PPX--Interstate",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Australia--PPX--Remote",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Bahrain,  Kuwait--  DPX",
+    "countries": [
+      "Bahrain",
+      "Kuwait"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Bahrain, Kuwait-PPX",
+    "countries": [
+      "Bahrain",
+      "Kuwait"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Oman--GPX",
+    "countries": [
+      "Oman"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Oman-PPX",
+    "countries": [
+      "Oman"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Qatar-PPX",
+    "countries": [
+      "Qatar"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Saudi Arabia--DPX",
+    "countries": [
+      "Saudi Arabia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Saudi Arabia -PPX",
+    "countries": [
+      "Saudi Arabia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Egypt, Jordan, Lebanon--DPX",
+    "countries": [
+      "Egypt",
+      "Jordan",
+      "Lebanon"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Cyprus, Egypt, Jordan, Lebanon, Turkey, Yemen--PPX",
+    "countries": [
+      "Cyprus",
+      "Egypt",
+      "Jordan",
+      "Lebanon",
+      "Turkey",
+      "Yemen"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Turkey--DPX",
+    "countries": [
+      "Turkey"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Taiwan, Vietnam-PPX",
+    "countries": [
+      "Taiwan",
+      "Vietnam"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Singapore-PPX",
+    "countries": [
+      "Singapore"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Malaysia-PPX",
+    "countries": [
+      "Malaysia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Thailand-PPX",
+    "countries": [
+      "Thailand"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Phillipines-PPX",
+    "countries": [
+      "Philippines"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Nepal-PPX",
+    "countries": [
+      "Nepal"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Bangladesh  -PPX",
+    "countries": [
+      "Bangladesh"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Sri Lanka-PPX",
+    "countries": [
+      "Sri Lanka"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Hong Kong-PPX",
+    "countries": [
+      "Hong Kong"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "China-PPX",
+    "countries": [
+      "China"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Indonesia, Pakistan, South Korea--PPX",
+    "countries": [
+      "Indonesia",
+      "Pakistan",
+      "South Korea"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Italy--PLX/PDX/PPX",
+    "countries": [
+      "Italy"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Germany--PLX/PDX/PPX",
+    "countries": [
+      "Germany"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "France--PLX/PDX/PPX",
+    "countries": [
+      "France"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Maldives-PPX",
+    "countries": [
+      "Maldives"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "UK - PPX",
+    "countries": [
+      "UK",
+      "United Kingdom"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "UK - GPX",
+    "countries": [
+      "UK",
+      "United Kingdom"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Japan -PPX",
+    "countries": [
+      "Japan"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "New Zealand-PPX",
+    "countries": [
+      "New Zealand"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Bulgaria, Czech Rep., Hungary, Poland, Romania, Slovakia -PPX",
+    "countries": [
+      "Bulgaria",
+      "Czech Republic",
+      "Hungary",
+      "Poland",
+      "Romania",
+      "Slovakia"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Azerbejan, Gerogia, Kazakhistan---PPX",
+    "countries": [
+      "Azerbaijan",
+      "Georgia",
+      "Kazakhstan"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Armenia, Estonia, Krygistan, Latvia, Lithunia, Russia, Ukraine, Uzbekistan-PPX",
+    "countries": [
+      "Armenia",
+      "Estonia",
+      "Kyrgyzstan",
+      "Latvia",
+      "Lithuania",
+      "Russia",
+      "Ukraine",
+      "Uzbekistan"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Kenya-PPX",
+    "countries": [
+      "Kenya"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Nigeria,  South Africa-PPX",
+    "countries": [
+      "Nigeria",
+      "South Africa"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Ethiopia, Ghana -PPX",
+    "countries": [
+      "Ethiopia",
+      "Ghana"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Tanzania-PPX",
+    "countries": [
+      "Tanzania"
+    ]
+  },
+  {
+    "carrier": "Aramex",
+    "zone": "Mauritius-PPX",
+    "countries": [
+      "Mauritius"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-1",
+    "countries": [
+      "Germany"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-2",
+    "countries": [
+      "Austria",
+      "Belgium",
+      "Luxembourg",
+      "Netherlands"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-3",
+    "countries": [
+      "Czech Republic",
+      "Denmark",
+      "Liechtenstein"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-4",
+    "countries": [
+      "France",
+      "Monaco"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-5",
+    "countries": [
+      "Hungary",
+      "Italy",
+      "Poland",
+      "Slovakia",
+      "Slovenia"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-6",
+    "countries": [
+      "Spain",
+      "Ireland",
+      "Finland",
+      "Portugal",
+      "Sweden"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-7",
+    "countries": [
+      "Estonia",
+      "Croatia",
+      "Latvia",
+      "Lithuania"
+    ]
+  },
+  {
+    "carrier": "SELF-EUROPE",
+    "zone": "EU-Zone-8",
+    "countries": [
+      "Remote Europe"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "UAE",
+    "countries": [
+      "UAE"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "Sudan",
+    "countries": [
+      "Sudan"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "Lebanon",
+    "countries": [
+      "Lebanon"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "Iran",
+    "countries": [
+      "Iran"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "Kuwait",
+    "countries": [
+      "Kuwait"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "Oman",
+    "countries": [
+      "Oman"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "Bahrain",
+    "countries": [
+      "Bahrain"
+    ]
+  },
+  {
+    "carrier": "SELF-DUBAI",
+    "zone": "Qatar",
+    "countries": [
+      "Qatar"
+    ]
+  },
+  {
+    "carrier": "SELF-UK",
+    "zone": "UK",
+    "countries": [
+      "UK",
+      "United Kingdom"
+    ]
+  },
+  {
+    "carrier": "SELF-AUSTRALIA",
+    "zone": "Metro",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "SELF-AUSTRALIA",
+    "zone": "Capital",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "SELF-AUSTRALIA",
+    "zone": "Regional",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "SELF-AUSTRALIA",
+    "zone": "Remote",
+    "countries": [
+      "Australia"
+    ]
+  },
+  {
+    "carrier": "SELF-NZ",
+    "zone": "Zone 1",
+    "countries": [
+      "New Zealand"
+    ]
+  },
+  {
+    "carrier": "SELF-NZ",
+    "zone": "Zone 2",
+    "countries": [
+      "New Zealand"
+    ]
+  },
+  {
+    "carrier": "SELF-NZ",
+    "zone": "Zone 3",
+    "countries": [
+      "New Zealand"
+    ]
+  },
+  {
+    "carrier": "SELF-NZ",
+    "zone": "Zone 4",
+    "countries": [
+      "New Zealand"
+    ]
+  },
+  {
+    "carrier": "UPS-DUTY-FREE",
+    "zone": "USA",
+    "countries": [
+      "United States",
+      "USA"
+    ]
+  }
+]
