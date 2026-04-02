@@ -259,7 +259,7 @@ CLOUDFLARE_R2_URL=
 ## 🗓️ Development Roadmap
 
 ```
-Week 1  ████████░░  Foundation & MongoDB Setup         ✅ In Progress
+Week 1  ██████████  Foundation & MongoDB Setup         ✅ completed
 Week 2  ░░░░░░░░░░  CMS Development
 Week 3  ░░░░░░░░░░  User Management
 Week 4  ░░░░░░░░░░  KYC & Rate Calculator
