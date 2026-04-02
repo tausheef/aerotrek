@@ -18,7 +18,7 @@
 [![PHP](https://img.shields.io/badge/PHP-8.1+-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![License](https://img.shields.io/badge/License-Private-red?style=for-the-badge)](/)
 
-**[aerotrekcourier.com](https://aerotrekcourier.com)** · Built by Tausheef & Sahil
+**[aerotrekcourier.com](https://aerotrekcourier.com)**
 
 </div>
 
