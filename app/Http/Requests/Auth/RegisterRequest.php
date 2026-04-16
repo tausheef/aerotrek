@@ -18,17 +18,19 @@ class RegisterRequest extends FormRequest
             'email'        => ['required', 'email', 'unique:mongodb.users,email'],
             'phone'        => ['required', 'string', 'min:10', 'max:15', 'unique:mongodb.users,phone'],
             'password'     => ['required', 'string', 'min:8', 'confirmed'],
-            'company_name' => ['nullable', 'string', 'max:150'],
+            'account_type' => ['required', 'in:individual,company'],
+            'company_name' => ['required_if:account_type,company', 'nullable', 'string', 'max:150'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'email.unique'    => 'This email is already registered.',
-            'phone.unique'    => 'This phone number is already registered.',
-            'password.min'    => 'Password must be at least 8 characters.',
-            'password.confirmed' => 'Password confirmation does not match.',
+            'email.unique'             => 'This email is already registered.',
+            'phone.unique'             => 'This phone number is already registered.',
+            'password.confirmed'       => 'Password confirmation does not match.',
+            'account_type.required'    => 'Please select account type (individual or company).',
+            'company_name.required_if' => 'Company name is required for company accounts.',
         ];
     }
 }

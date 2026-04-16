@@ -9,7 +9,6 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
@@ -17,17 +16,16 @@ class AuthController extends Controller
 {
     use ApiResponse;
 
-    /**
-     * Register a new user.
-     */
+    // POST /api/v1/auth/register
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::create([
             'name'           => $request->name,
             'email'          => $request->email,
             'phone'          => $request->phone,
-            'password'       => $request->password, // auto-hashed via cast
-            'company_name'   => $request->company_name,
+            'password'       => $request->password,
+            'account_type'   => $request->account_type,
+            'company_name'   => $request->company_name ?? null,
             'wallet_balance' => 0.0,
             'kyc_status'     => 'pending',
             'is_admin'       => false,
@@ -49,26 +47,20 @@ class AuthController extends Controller
         );
     }
 
-    /**
-     * Login and return a JWT token.
-     */
+    // POST /api/v1/auth/login
     public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->only('email', 'password');
-
         try {
-            if (! $token = JWTAuth::attempt($credentials)) {
+            if (! $token = JWTAuth::attempt($request->only('email', 'password'))) {
                 return $this->errorResponse('Invalid email or password.', 401);
             }
         } catch (JWTException $e) {
             return $this->errorResponse('Could not create token. Please try again.', 500);
         }
 
-        $user = JWTAuth::user();
-
         return $this->successResponse(
             data: [
-                'user'         => new UserResource($user),
+                'user'         => new UserResource(JWTAuth::user()),
                 'access_token' => $token,
                 'token_type'   => 'bearer',
                 'expires_in'   => config('jwt.ttl') * 60,
@@ -77,23 +69,19 @@ class AuthController extends Controller
         );
     }
 
-    /**
-     * Logout (invalidate the token).
-     */
+    // POST /api/v1/auth/logout
     public function logout(): JsonResponse
     {
         try {
             JWTAuth::invalidate(JWTAuth::getToken());
         } catch (JWTException $e) {
-            return $this->errorResponse('Failed to logout. Please try again.', 500);
+            return $this->errorResponse('Failed to logout.', 500);
         }
 
         return $this->successResponse(message: 'Logged out successfully.');
     }
 
-    /**
-     * Refresh the JWT token.
-     */
+    // POST /api/v1/auth/refresh
     public function refresh(): JsonResponse
     {
         try {
@@ -112,16 +100,12 @@ class AuthController extends Controller
         );
     }
 
-    /**
-     * Get the authenticated user's profile.
-     */
+    // GET /api/v1/auth/me
     public function me(): JsonResponse
     {
-        $user = JWTAuth::user();
-
         return $this->successResponse(
-            data: ['user' => new UserResource($user)],
-            message: 'User profile retrieved.'
+            data: ['user' => new UserResource(JWTAuth::user())],
+            message: 'Profile retrieved.'
         );
     }
 }

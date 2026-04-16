@@ -22,9 +22,10 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         'email',
         'phone',
         'password',
-        'company_name',
+        'account_type',     // individual | company
+        'company_name',     // required if account_type = company
         'wallet_balance',
-        'kyc_status',
+        'kyc_status',       // pending | verified | rejected
         'is_admin',
         'email_verified',
         'phone_verified',
@@ -47,7 +48,6 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         ];
     }
 
-    // JWT - Required methods
     public function getJWTIdentifier()
     {
         return $this->getKey();
@@ -56,5 +56,17 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function getJWTCustomClaims(): array
     {
         return [];
+    }
+
+    // Helper — check if KYC is verified
+    public function isKycVerified(): bool
+    {
+        return $this->kyc_status === 'verified';
+    }
+
+    // Helper — check if company
+    public function isCompany(): bool
+    {
+        return $this->account_type === 'company';
     }
 }
