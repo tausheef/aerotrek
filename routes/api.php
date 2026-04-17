@@ -5,7 +5,10 @@ use App\Http\Controllers\API\V1\CMS\CmsController;
 use App\Http\Controllers\API\V1\Rate\RateCalculatorController;
 use App\Http\Controllers\API\V1\User\ProfileController;
 use App\Http\Controllers\API\V1\User\AddressController;
+use App\Http\Controllers\API\V1\KYC\KycController;
+use App\Http\Controllers\API\V1\Wallet\WalletController;
 use App\Http\Controllers\Admin\AdminCmsController;
+use App\Http\Controllers\Admin\AdminKycController;
 use App\Http\Controllers\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +29,10 @@ Route::prefix('v1')->group(function () {
         Route::get('settings',        [CmsController::class, 'getSettings']);
     });
 
+    // PayU webhooks — public, no JWT (PayU calls these)
+    Route::post('wallet/payment/success', [WalletController::class, 'paymentSuccess']);
+    Route::post('wallet/payment/failure', [WalletController::class, 'paymentFailure']);
+
     // ── USER ROUTES (jwt.auth) ────────────────────────────────────────
     Route::middleware('jwt.auth')->group(function () {
 
@@ -36,29 +43,51 @@ Route::prefix('v1')->group(function () {
             Route::get('me',       [AuthController::class, 'me']);
         });
 
-        // Profile
+        // Profile & Addresses
         Route::prefix('user')->group(function () {
-            Route::get('profile',              [ProfileController::class, 'show']);
-            Route::put('profile',              [ProfileController::class, 'update']);
-            Route::get('addresses',            [AddressController::class, 'index']);
-            Route::post('addresses',           [AddressController::class, 'store']);
-            Route::put('addresses/{id}',       [AddressController::class, 'update']);
-            Route::delete('addresses/{id}',    [AddressController::class, 'destroy']);
+            Route::get('profile',                [ProfileController::class, 'show']);
+            Route::put('profile',                [ProfileController::class, 'update']);
+            Route::get('addresses',              [AddressController::class, 'index']);
+            Route::post('addresses',             [AddressController::class, 'store']);
+            Route::put('addresses/{id}',         [AddressController::class, 'update']);
+            Route::delete('addresses/{id}',      [AddressController::class, 'destroy']);
             Route::put('addresses/{id}/default', [AddressController::class, 'setDefault']);
+        });
+
+        // KYC
+        Route::prefix('kyc')->group(function () {
+            Route::get('/',       [KycController::class, 'status']);
+            Route::post('submit', [KycController::class, 'submit']);
+        });
+
+        // Wallet
+        Route::prefix('wallet')->group(function () {
+            Route::get('/',              [WalletController::class, 'balance']);
+            Route::get('transactions',   [WalletController::class, 'transactions']);
+            Route::post('recharge',      [WalletController::class, 'recharge']);
         });
 
         // Rate Calculator
         Route::post('rates/calculate', [RateCalculatorController::class, 'calculate']);
 
-        // ── Future routes ─────────────────────────────────────────────
-        // KYC, Wallet, Shipments coming next
+        // ── Future: Shipments (kyc.verified + wallet check applied there)
     });
 
-    // ── ADMIN ROUTES (jwt.auth + jwt.admin) ───────────────────────────
+    // ── ADMIN ROUTES ──────────────────────────────────────────────────
     Route::middleware(['jwt.auth', 'jwt.admin'])->prefix('admin')->group(function () {
 
         Route::get('dashboard', [DashboardController::class, 'index']);
 
+        // KYC Management
+        Route::prefix('kyc')->group(function () {
+            Route::get('/',             [AdminKycController::class, 'index']);
+            Route::get('stats',         [AdminKycController::class, 'stats']);
+            Route::get('{id}',          [AdminKycController::class, 'show']);
+            Route::post('{id}/approve', [AdminKycController::class, 'approve']);
+            Route::post('{id}/reject',  [AdminKycController::class, 'reject']);
+        });
+
+        // CMS Management
         Route::prefix('cms')->group(function () {
             Route::get('pages',           [AdminCmsController::class, 'indexPages']);
             Route::post('pages',          [AdminCmsController::class, 'storePage']);
