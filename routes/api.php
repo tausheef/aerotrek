@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\API\V1\Auth\AuthController;
+use App\Http\Controllers\API\V1\Booking\ShipmentController;
 use App\Http\Controllers\API\V1\CMS\CmsController;
-use App\Http\Controllers\API\V1\Rate\RateCalculatorController;
-use App\Http\Controllers\API\V1\User\ProfileController;
-use App\Http\Controllers\API\V1\User\AddressController;
 use App\Http\Controllers\API\V1\KYC\KycController;
+use App\Http\Controllers\API\V1\Rate\RateCalculatorController;
+use App\Http\Controllers\API\V1\Tracking\TrackingController;
+use App\Http\Controllers\API\V1\User\AddressController;
+use App\Http\Controllers\API\V1\User\ProfileController;
 use App\Http\Controllers\API\V1\Wallet\WalletController;
 use App\Http\Controllers\Admin\AdminCmsController;
 use App\Http\Controllers\Admin\AdminKycController;
@@ -14,12 +16,16 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
-    // ── GUEST ROUTES ──────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════
+    // GUEST ROUTES — no token required
+    // ══════════════════════════════════════════════════════════════════
+
     Route::prefix('auth')->group(function () {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login',    [AuthController::class, 'login']);
     });
 
+    // CMS Public
     Route::prefix('cms')->group(function () {
         Route::get('pages/{slug}',    [CmsController::class, 'getPage']);
         Route::get('blog',            [CmsController::class, 'getBlogPosts']);
@@ -29,11 +35,17 @@ Route::prefix('v1')->group(function () {
         Route::get('settings',        [CmsController::class, 'getSettings']);
     });
 
-    // PayU webhooks — public, no JWT (PayU calls these)
+    // Public Tracking — no token needed (for landing page)
+    Route::get('tracking/{awb}', [TrackingController::class, 'track']);
+
+    // PayU webhooks — no token (PayU calls these)
     Route::post('wallet/payment/success', [WalletController::class, 'paymentSuccess']);
     Route::post('wallet/payment/failure', [WalletController::class, 'paymentFailure']);
 
-    // ── USER ROUTES (jwt.auth) ────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════
+    // USER ROUTES — jwt.auth required
+    // ══════════════════════════════════════════════════════════════════
+
     Route::middleware('jwt.auth')->group(function () {
 
         // Auth
@@ -62,18 +74,28 @@ Route::prefix('v1')->group(function () {
 
         // Wallet
         Route::prefix('wallet')->group(function () {
-            Route::get('/',              [WalletController::class, 'balance']);
-            Route::get('transactions',   [WalletController::class, 'transactions']);
-            Route::post('recharge',      [WalletController::class, 'recharge']);
+            Route::get('/',            [WalletController::class, 'balance']);
+            Route::get('transactions', [WalletController::class, 'transactions']);
+            Route::post('recharge',    [WalletController::class, 'recharge']);
         });
 
         // Rate Calculator
         Route::post('rates/calculate', [RateCalculatorController::class, 'calculate']);
 
-        // ── Future: Shipments (kyc.verified + wallet check applied there)
+        // Shipment Booking (KYC verified required)
+        Route::prefix('shipments')->middleware('kyc.verified')->group(function () {
+            Route::get('/',           [ShipmentController::class, 'index']);
+            Route::get('{id}',        [ShipmentController::class, 'show']);
+            Route::post('book',       [ShipmentController::class, 'book']);
+            Route::post('send-otp',   [ShipmentController::class, 'sendOtp']);    // DHL only
+            Route::post('verify-otp', [ShipmentController::class, 'verifyOtp']); // DHL only
+        });
     });
 
-    // ── ADMIN ROUTES ──────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════
+    // ADMIN ROUTES — jwt.auth + jwt.admin
+    // ══════════════════════════════════════════════════════════════════
+
     Route::middleware(['jwt.auth', 'jwt.admin'])->prefix('admin')->group(function () {
 
         Route::get('dashboard', [DashboardController::class, 'index']);
@@ -85,6 +107,14 @@ Route::prefix('v1')->group(function () {
             Route::get('{id}',          [AdminKycController::class, 'show']);
             Route::post('{id}/approve', [AdminKycController::class, 'approve']);
             Route::post('{id}/reject',  [AdminKycController::class, 'reject']);
+        });
+
+        // Shipment Management
+        Route::prefix('shipments')->group(function () {
+            Route::get('/', function () {
+                $shipments = \App\Models\Shipment::orderBy('created_at', 'desc')->paginate(20);
+                return response()->json(['success' => true, 'shipments' => $shipments]);
+            });
         });
 
         // CMS Management
