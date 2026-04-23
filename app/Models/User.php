@@ -29,6 +29,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         'is_admin',
         'email_verified',
         'phone_verified',
+        'avatar_url',
     ];
 
     protected $hidden = [

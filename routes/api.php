@@ -4,6 +4,7 @@ use App\Http\Controllers\API\V1\Auth\AuthController;
 use App\Http\Controllers\API\V1\Booking\ShipmentController;
 use App\Http\Controllers\API\V1\CMS\CmsController;
 use App\Http\Controllers\API\V1\KYC\KycController;
+use App\Http\Controllers\API\V1\Media\MediaController;
 use App\Http\Controllers\API\V1\Rate\RateCalculatorController;
 use App\Http\Controllers\API\V1\Tracking\TrackingController;
 use App\Http\Controllers\API\V1\User\AddressController;
@@ -35,8 +36,8 @@ Route::prefix('v1')->group(function () {
         Route::get('settings',        [CmsController::class, 'getSettings']);
     });
 
-    // Public Tracking — no token needed (for landing page)
-    Route::get('tracking/{awb}', [TrackingController::class, 'track']);
+    // Public Tracking — accepts ATK ID, AWB no, or platform ref ID
+    Route::get('tracking/{identifier}', [TrackingController::class, 'track']);
 
     // PayU webhooks — no token (PayU calls these)
     Route::post('wallet/payment/success', [WalletController::class, 'paymentSuccess']);
@@ -59,6 +60,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('user')->group(function () {
             Route::get('profile',                [ProfileController::class, 'show']);
             Route::put('profile',                [ProfileController::class, 'update']);
+            Route::post('profile/avatar',        [ProfileController::class, 'uploadAvatar']);
             Route::get('addresses',              [AddressController::class, 'index']);
             Route::post('addresses',             [AddressController::class, 'store']);
             Route::put('addresses/{id}',         [AddressController::class, 'update']);
@@ -99,6 +101,13 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['jwt.auth', 'jwt.admin'])->prefix('admin')->group(function () {
 
         Route::get('dashboard', [DashboardController::class, 'index']);
+
+        // Media Management
+        Route::prefix('media')->group(function () {
+            Route::get('/',           [MediaController::class, 'index']);
+            Route::post('upload',     [MediaController::class, 'upload']);
+            Route::delete('{id}',     [MediaController::class, 'destroy']);
+        });
 
         // KYC Management
         Route::prefix('kyc')->group(function () {

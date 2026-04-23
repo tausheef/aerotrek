@@ -28,6 +28,17 @@ class R2StorageDriver implements StorageDriverInterface
         return Storage::disk('r2')->delete($path);
     }
 
+    public function uploadMedia(string $path, $file): array
+    {
+        $stored = $this->upload($path, $file);
+
+        return [
+            'path'      => $stored,
+            'url'       => $this->url($stored),
+            'file_name' => basename($stored),
+        ];
+    }
+
     public function getDriverName(): string
     {
         return 'r2';

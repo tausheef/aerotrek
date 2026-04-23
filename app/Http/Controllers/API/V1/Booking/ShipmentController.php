@@ -144,11 +144,14 @@ class ShipmentController extends Controller
 
             return $this->successResponse(
                 data: [
-                    'shipment'    => $shipment,
-                    'awb_no'      => $shipment->awb_no,
-                    'tracking_no' => $shipment->tracking_no,
-                    'label_url'   => $shipment->label_url,
-                    'invoice_url' => $shipment->invoice_url,
+                    'shipment'       => $shipment,
+                    'aerotrek_id'    => $shipment->aerotrek_id,
+                    'platform'       => $shipment->platform,
+                    'platform_ref_id'=> $shipment->platform_ref_id,
+                    'awb_no'         => $shipment->awb_no,
+                    'tracking_no'    => $shipment->tracking_no,
+                    'label_url'      => $shipment->label_url,
+                    'invoice_url'    => $shipment->invoice_url,
                     'wallet_balance' => $user->fresh()->wallet_balance,
                 ],
                 message: 'Shipment booked successfully!',

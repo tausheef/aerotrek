@@ -5,6 +5,7 @@ namespace App\Services\Storage;
 use App\Services\Storage\Contracts\StorageDriverInterface;
 use App\Services\Storage\Drivers\LocalStorageDriver;
 use App\Services\Storage\Drivers\R2StorageDriver;
+use Illuminate\Support\Str;
 
 class StorageService
 {
@@ -69,6 +70,19 @@ class StorageService
         unlink($tempPath);
 
         return $stored;
+    }
+
+    /**
+     * Upload any media file to a given folder.
+     * Returns ['path', 'url', 'file_name'].
+     */
+    public function uploadMedia($file, string $folder = 'media'): array
+    {
+        $extension = $file->getClientOriginalExtension();
+        $filename  = "{$folder}_" . time() . '_' . Str::random(8) . ".{$extension}";
+        $path      = "{$folder}/{$filename}";
+
+        return $this->driver->uploadMedia($path, $file);
     }
 
     /**

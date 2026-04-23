@@ -10,9 +10,12 @@ class Shipment extends Model
     protected $collection = 'shipments';
 
     protected $fillable = [
+        'aerotrek_id',          // ATK-YYYYMMDD-XXXXXX — Aerotrek's own unique ID
+        'platform',             // overseas | shiprocket | delhivery (which platform booked)
+        'platform_ref_id',      // Platform's own shipment/order ID (Overseas AWB, Shiprocket order ID)
         'user_id',
-        'awb_no',               // Overseas AWB number
-        'tracking_no',          // Carrier tracking number (DHL/UPS/FedEx)
+        'awb_no',               // Carrier AWB number (DHL/FedEx/UPS actual AWB)
+        'tracking_no',          // Carrier tracking number
         'carrier',              // DHL | FedEx | UPS | Aramex | SELF
         'service_code',         // DHL_EXPRESS | UPS_SAVER etc
         'service_name',         // Human readable
@@ -33,7 +36,7 @@ class Shipment extends Model
         'reason_for_export',
         'transaction_id',       // DHL OTP transaction ID
         'wallet_transaction_id',// Our wallet deduction reference
-        'overseas_response',    // Raw Overseas API response
+        'overseas_response',    // Raw platform API response
         'tracking_events',      // Cached tracking events
         'tracking_updated_at',  // Last tracking update
     ];
@@ -61,5 +64,16 @@ class Shipment extends Model
     public function scopeByStatus($query, string $status)
     {
         return $query->where('status', $status);
+    }
+
+    /**
+     * Find shipment by any identifier — ATK ID, AWB, or platform ref ID.
+     */
+    public static function findByIdentifier(string $identifier): ?self
+    {
+        return static::where('aerotrek_id', $identifier)
+            ->orWhere('awb_no', $identifier)
+            ->orWhere('platform_ref_id', $identifier)
+            ->first();
     }
 }

@@ -8,6 +8,7 @@ use App\Models\BlogPost;
 use App\Models\Faq;
 use App\Models\Page;
 use App\Models\SiteSetting;
+use App\Services\Storage\StorageService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,17 @@ use Illuminate\Support\Str;
 class AdminCmsController extends Controller
 {
     use ApiResponse;
+
+    public function __construct(private StorageService $storage) {}
+
+    private function resolveFeaturedImage(Request $request, ?string $existing = null): ?string
+    {
+        if ($request->hasFile('featured_image')) {
+            $uploaded = $this->storage->uploadMedia($request->file('featured_image'), 'blog');
+            return $uploaded['url'];
+        }
+        return $request->input('featured_image', $existing);
+    }
 
     // ══════════════════════════════════════════════════════════════════
     // PAGES
@@ -87,9 +99,10 @@ class AdminCmsController extends Controller
     public function storeBlog(Request $request): JsonResponse
     {
         $request->validate([
-            'title'       => 'required|string|max:200',
-            'content'     => 'required|string',
-            'category_id' => 'nullable|string',
+            'title'          => 'required|string|max:200',
+            'content'        => 'required|string',
+            'category_id'    => 'nullable|string',
+            'featured_image' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120',
         ]);
 
         $post = BlogPost::create([
@@ -97,7 +110,7 @@ class AdminCmsController extends Controller
             'slug'             => Str::slug($request->title),
             'content'          => $request->content,
             'excerpt'          => $request->excerpt,
-            'featured_image'   => $request->featured_image,
+            'featured_image'   => $this->resolveFeaturedImage($request),
             'category_id'      => $request->category_id,
             'meta_title'       => $request->meta_title,
             'meta_description' => $request->meta_description,
@@ -113,12 +126,16 @@ class AdminCmsController extends Controller
     {
         $post = BlogPost::findOrFail($id);
 
+        $request->validate([
+            'featured_image' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120',
+        ]);
+
         $post->update([
             'title'            => $request->title ?? $post->title,
             'slug'             => $request->title ? Str::slug($request->title) : $post->slug,
             'content'          => $request->content ?? $post->content,
             'excerpt'          => $request->excerpt ?? $post->excerpt,
-            'featured_image'   => $request->featured_image ?? $post->featured_image,
+            'featured_image'   => $this->resolveFeaturedImage($request, $post->featured_image),
             'category_id'      => $request->category_id ?? $post->category_id,
             'meta_title'       => $request->meta_title ?? $post->meta_title,
             'meta_description' => $request->meta_description ?? $post->meta_description,

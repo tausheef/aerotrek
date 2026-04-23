@@ -17,20 +17,21 @@ class TrackingController extends Controller
     ) {}
 
     /**
-     * GET /api/v1/tracking/{awb}
-     * Public endpoint — no token needed
-     * Track any shipment by AWB number
+     * GET /api/v1/tracking/{identifier}
+     * Public endpoint — no token needed.
+     * Accepts: ATK ID (ATK-20260423-000047), AWB no, or platform ref ID.
      */
-    public function track(string $awb): JsonResponse
+    public function track(string $identifier): JsonResponse
     {
-        try {
-            // Check if we have this shipment in our DB
-            $shipment = Shipment::where('awb_no', $awb)->first();
+        // Resolve shipment from DB using any of the three identifiers
+        $shipment = Shipment::findByIdentifier($identifier);
 
-            // Fetch live tracking from Overseas API
+        // Need AWB to call the carrier tracking API
+        $awb = $shipment?->awb_no ?? $identifier;
+
+        try {
             $tracking = $this->overseas->trackShipment($awb);
 
-            // Update cached events in our DB
             if ($shipment) {
                 $shipment->update([
                     'tracking_events'    => $tracking['events'],
@@ -40,6 +41,9 @@ class TrackingController extends Controller
             }
 
             return $this->successResponse(data: [
+                'aerotrek_id'   => $shipment?->aerotrek_id,
+                'platform'      => $shipment?->platform,
+                'platform_ref_id' => $shipment?->platform_ref_id,
                 'awb_no'        => $tracking['awb_no'],
                 'carrier'       => $shipment?->carrier ?? $tracking['forwarder'],
                 'service'       => $shipment?->service_name,
@@ -53,18 +57,19 @@ class TrackingController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // If Overseas API fails, return cached data from our DB
-            $shipment = Shipment::where('awb_no', $awb)->first();
-
+            // Overseas API failed — return cached data if available
             if ($shipment && $shipment->tracking_events) {
                 return $this->successResponse(
                     data: [
-                        'awb_no'  => $awb,
-                        'carrier' => $shipment->carrier,
-                        'status'  => $shipment->status,
-                        'events'  => $shipment->tracking_events,
-                        'cached'  => true,
-                        'cached_at' => $shipment->tracking_updated_at,
+                        'aerotrek_id'   => $shipment->aerotrek_id,
+                        'platform'      => $shipment->platform,
+                        'platform_ref_id' => $shipment->platform_ref_id,
+                        'awb_no'        => $shipment->awb_no,
+                        'carrier'       => $shipment->carrier,
+                        'status'        => $shipment->status,
+                        'events'        => $shipment->tracking_events,
+                        'cached'        => true,
+                        'cached_at'     => $shipment->tracking_updated_at,
                     ],
                     message: 'Showing cached tracking data.'
                 );

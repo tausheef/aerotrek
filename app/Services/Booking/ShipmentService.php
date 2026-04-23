@@ -6,15 +6,16 @@ use App\Models\Kyc;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\External\OverseasApiService;
+use App\Services\Shipment\AerotrekIdGenerator;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ShipmentService
 {
     public function __construct(
-        private OverseasApiService $overseas,
-        private WalletService      $wallet,
+        private OverseasApiService  $overseas,
+        private WalletService       $wallet,
+        private AerotrekIdGenerator $idGenerator,
     ) {}
 
     /**
@@ -62,6 +63,9 @@ class ShipmentService
     public function book(User $user, array $data): Shipment
     {
         $kyc = $this->getUserKyc($user);
+
+        // Generate Aerotrek ID before anything else — we own this no matter what happens
+        $aerotrekId = $this->idGenerator->generate();
 
         // Check wallet balance
         if ($user->wallet_balance < $data['price']) {
@@ -131,6 +135,9 @@ class ShipmentService
 
         // Save shipment to MongoDB
         $shipment = Shipment::create([
+            'aerotrek_id'          => $aerotrekId,
+            'platform'             => 'overseas',
+            'platform_ref_id'      => $response['awb_no'], // Overseas's own reference
             'user_id'              => (string) $user->_id,
             'awb_no'               => $response['awb_no'],
             'tracking_no'          => $response['tracking_no'],

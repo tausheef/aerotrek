@@ -20,6 +20,11 @@ interface StorageDriverInterface
     public function delete(string $path): bool;
 
     /**
+     * Upload a file and return path, url, and file_name.
+     */
+    public function uploadMedia(string $path, $file): array;
+
+    /**
      * Driver name.
      */
     public function getDriverName(): string;
