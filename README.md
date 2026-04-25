@@ -12,10 +12,10 @@
 
 ### White-Label International Courier Booking Platform
 
-[![Laravel](https://img.shields.io/badge/Laravel-11+-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
+[![Laravel](https://img.shields.io/badge/Laravel-13+-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
 [![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
-[![MongoDB](https://img.shields.io/badge/MongoDB-6+-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com)
-[![PHP](https://img.shields.io/badge/PHP-8.1+-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
+[![MySQL](https://img.shields.io/badge/MySQL-8+-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://mysql.com)
+[![PHP](https://img.shields.io/badge/PHP-8.3+-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
 [![License](https://img.shields.io/badge/License-Private-red?style=for-the-badge)](/)
 
 **[aerotrekcourier.com](https://aerotrekcourier.com)**
@@ -61,8 +61,8 @@ The platform integrates with **DHL**, **FedEx**, **Aramex**, **UPS**, and **SELF
 └──────┬──────────┬──────────┬──────────┬─────────────────┘
        │          │          │          │
 ┌──────▼──┐  ┌───▼────┐ ┌───▼───┐ ┌───▼──────────┐
-│ MongoDB │  │ PayU   │ │  R2   │ │  Overseas    │
-│ Atlas   │  │Gateway │ │Storage│ │ Logistics API│
+│  MySQL  │  │ PayU   │ │  R2   │ │  Overseas    │
+│    8+   │  │Gateway │ │Storage│ │ Logistics API│
 └─────────┘  └────────┘ └───────┘ └──────────────┘
 ```
 
@@ -71,9 +71,10 @@ The platform integrates with **DHL**, **FedEx**, **Aramex**, **UPS**, and **SELF
 ## 🛠️ Tech Stack
 
 ### Backend
-- **Framework:** Laravel 11+ (PHP 8.1+)
-- **Database:** MongoDB 6+ (via `mongodb/laravel-mongodb`)
+- **Framework:** Laravel 13+ (PHP 8.3+)
+- **Database:** MySQL 8+ (via Laravel Eloquent)
 - **Authentication:** JWT (`tymon/jwt-auth`)
+- **Wallet:** bavix/laravel-wallet
 - **File Storage:** Cloudflare R2 (S3-compatible)
 - **Payment:** PayU Gateway
 - **Web Server:** Nginx on Digital Ocean
@@ -104,22 +105,19 @@ aerotrek/
 │   │   │   │   ├── API/V1/     # Auth, KYC, Booking, Tracking, Wallet
 │   │   │   │   ├── Admin/      # Admin Panel Controllers
 │   │   │   │   └── CMS/        # CMS Controllers
-│   │   │   ├── Middleware/     # JWT, Admin, KYC, Wallet guards
+│   │   │   ├── Middleware/     # JWT, Admin, KYC guards
 │   │   │   └── Requests/       # Form validation
-│   │   ├── Models/             # MongoDB Eloquent Models
+│   │   ├── Models/             # Eloquent Models (MySQL)
 │   │   ├── Services/           # Business logic layer
-│   │   ├── Repositories/       # Data access layer
-│   │   ├── Enums/              # ShipmentStatus, KycStatus, etc.
-│   │   └── Traits/             # ApiResponse, HasUuid, Loggable
+│   │   └── Traits/             # ApiResponse
 │   ├── config/
-│   │   ├── database.php        # MongoDB connection
+│   │   ├── database.php        # MySQL connection
 │   │   ├── jwt.php             # JWT configuration
+│   │   ├── wallet.php          # bavix wallet config
 │   │   ├── overseas.php        # Overseas API config
 │   │   └── payu.php            # PayU config
 │   └── routes/
-│       ├── api.php             # Public + user API routes
-│       ├── admin.php           # Admin routes
-│       └── cms.php             # CMS routes
+│       └── api.php             # All API routes
 │
 └── frontend/                   # React Application
     ├── src/
@@ -136,11 +134,10 @@ aerotrek/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- PHP 8.1+
+- PHP 8.3+
 - Composer
 - Node.js 18+
-- MongoDB PHP Extension
-- MongoDB Atlas account
+- MySQL 8+
 
 ### Backend Setup
 
@@ -157,13 +154,21 @@ cp .env.example .env
 
 # Configure your .env
 APP_KEY=          # php artisan key:generate
-MONGO_URI=        # Your MongoDB Atlas URI
-MONGO_DB=aerotrek
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=aerotrek
+DB_USERNAME=root
+DB_PASSWORD=
 JWT_SECRET=       # php artisan jwt:secret
 
 # Generate keys
 php artisan key:generate
 php artisan jwt:secret
+
+# Run migrations & seed
+php artisan migrate
+php artisan db:seed
 
 # Start the server
 php artisan serve
@@ -200,15 +205,20 @@ APP_KEY=
 APP_DEBUG=true
 APP_URL=http://localhost:8000
 
-DB_CONNECTION=mongodb
-MONGO_URI=mongodb+srv://<user>:<password>@cluster0.xxx.mongodb.net/
-MONGO_DB=aerotrek
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=aerotrek
+DB_USERNAME=root
+DB_PASSWORD=
 
 JWT_SECRET=
 JWT_TTL=60
 
 OVERSEAS_API_URL=https://apioverseaslogistic.in
-OVERSEAS_API_KEY=
+OVERSEAS_CLIENT_ID=
+OVERSEAS_CLIENT_SECRET=
+OVERSEAS_ACCOUNT_CODE=
 
 PAYU_MERCHANT_KEY=
 PAYU_MERCHANT_SALT=
@@ -226,30 +236,39 @@ CLOUDFLARE_R2_URL=
 
 ## 📦 Supported Carriers
 
-| Carrier | Booking Endpoint | Tracking |
-|---------|-----------------|----------|
-| 🟡 **DHL** | `/AddDHLShipment` | ✅ |
-| 🟣 **FedEx** | `/AddFedExShipment` | ✅ |
-| 🔴 **Aramex** | `/AddShipment` | ✅ |
-| 🟤 **UPS** | `/AddUPSShipment` | ✅ |
-| 🔵 **SELF/UK** | `/AddShipment` | ✅ |
+| Carrier | Service | Tracking |
+|---------|---------|----------|
+| 🟡 **DHL** | DHL Express | ✅ |
+| 🟣 **FedEx** | FedEx International Priority | ✅ |
+| 🔴 **Aramex** | Aramex Priority Express | ✅ |
+| 🟤 **UPS** | UPS Worldwide Saver | ✅ |
+| 🔵 **SELF UK** | DPD | ✅ |
+| 🟢 **SELF Europe** | DPD via Germany | ✅ |
+| 🟠 **SELF Dubai** | Direct | ✅ |
+| ⚪ **SELF Australia** | Toll Express | ✅ |
+| ⚪ **SELF NZ** | NZ Post | ✅ |
+| ⚪ **SELF Canada** | UPS Last Mile | ✅ |
 
 ---
 
-## 🗃️ Database Collections
+## 🗃️ Database Tables
 
-| Collection | Purpose |
+| Table | Purpose |
 |---|---|
-| `users` | User accounts, wallet balance, KYC status |
-| `admin_users` | Admin accounts (separate from users) |
-| `kyc_records` | KYC documents and TID records |
+| `users` | User accounts, KYC status |
+| `kycs` | KYC documents |
 | `shipments` | All booking records |
-| `tracking_events` | Shipment tracking history |
-| `wallet_transactions` | Credit/debit transaction logs |
+| `wallets` | bavix wallet accounts |
+| `transactions` | Wallet credit/debit logs |
+| `wallet_recharges` | PayU recharge records |
+| `addresses` | Saved user addresses |
 | `rate_zones` | Country → Zone mappings |
-| `rate_pricing` | Carrier pricing slabs |
+| `rate_pricings` | Carrier pricing slabs |
+| `australia_postcodes` | Australia zone postcode mapping |
+| `atk_counters` | ATK ID sequential counter |
 | `pages` | CMS static pages |
 | `blog_posts` | Blog articles |
+| `blog_categories` | Blog categories |
 | `faqs` | FAQ entries |
 | `media` | Uploaded files metadata |
 | `site_settings` | Key-value site configuration |
@@ -259,11 +278,11 @@ CLOUDFLARE_R2_URL=
 ## 🗓️ Development Roadmap
 
 ```
-Week 1  ██████████  Foundation & MongoDB Setup         ✅ completed
-Week 2  ░░░░░░░░░░  CMS Development
-Week 3  ░░░░░░░░░░  User Management
-Week 4  ░░░░░░░░░░  KYC & Rate Calculator
-Week 5  ░░░░░░░░░░  Shipment Booking
+Week 1  ██████████  Foundation & MySQL Setup              ✅ completed
+Week 2  ██████████  CMS Development                       ✅ completed
+Week 3  ██████████  User Management & Auth                ✅ completed
+Week 4  ██████████  KYC & Rate Calculator                 ✅ completed
+Week 5  ██████████  Shipment Booking                      ✅ completed
 Week 6  ░░░░░░░░░░  Wallet & PayU Integration
 Week 7  ░░░░░░░░░░  Tracking & CMS Pages
 Week 8  ░░░░░░░░░░  Admin Panel
@@ -273,17 +292,14 @@ Week 10 ░░░░░░░░░░  Deployment to Digital Ocean
 
 ---
 
----
-
 ## 🛡️ Security
 
 - ✅ JWT token authentication on all API endpoints
 - ✅ Bcrypt password hashing
 - ✅ PayU hash verification on payment callbacks
-- ✅ KYC/TID mandatory verification before booking
+- ✅ KYC mandatory verification before booking
 - ✅ CORS restricted to allowed origins
-- ✅ Rate limiting & request throttling
-- ✅ Input validation & NoSQL injection prevention
+- ✅ Input validation & SQL injection prevention
 - ✅ File upload validation (type, size)
 - ✅ HTTPS/SSL enforced on production
 
