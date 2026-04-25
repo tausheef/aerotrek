@@ -2,13 +2,10 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Page extends Model
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'pages';
-
     protected $fillable = [
         'title',
         'slug',
@@ -26,7 +23,6 @@ class Page extends Model
         ];
     }
 
-    // Scope - only published pages for public
     public function scopePublished($query)
     {
         return $query->where('is_published', true);

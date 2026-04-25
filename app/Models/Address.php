@@ -2,16 +2,13 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Address extends Model
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'addresses';
-
     protected $fillable = [
         'user_id',
-        'label',            // home | office | warehouse | other
+        'label',
         'full_name',
         'company_name',
         'address_line1',

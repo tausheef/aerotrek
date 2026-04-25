@@ -68,7 +68,7 @@ class ShipmentService
         $aerotrekId = $this->idGenerator->generate();
 
         // Check wallet balance
-        if ($user->wallet_balance < $data['price']) {
+        if ($user->balanceFloat < $data['price']) {
             throw new \Exception('Insufficient wallet balance. Please recharge your wallet.');
         }
 
@@ -133,12 +133,12 @@ class ShipmentService
             referenceId: $response['awb_no']
         );
 
-        // Save shipment to MongoDB
+        // Save shipment
         $shipment = Shipment::create([
             'aerotrek_id'          => $aerotrekId,
             'platform'             => 'overseas',
             'platform_ref_id'      => $response['awb_no'], // Overseas's own reference
-            'user_id'              => (string) $user->_id,
+            'user_id'              => $user->id,
             'awb_no'               => $response['awb_no'],
             'tracking_no'          => $response['tracking_no'],
             'carrier'              => $data['carrier'],
@@ -160,7 +160,7 @@ class ShipmentService
             'duty_tax'             => $shipmentData['duty_tax'],
             'reason_for_export'    => $shipmentData['reason_for_export'],
             'transaction_id'       => $data['transaction_id'] ?? null,
-            'wallet_transaction_id'=> (string) $walletTxn->_id,
+            'wallet_transaction_id'=> (string) $walletTxn->id,
             'overseas_response'    => $response['raw_response'],
         ]);
 
@@ -171,7 +171,7 @@ class ShipmentService
 
     private function getUserKyc(User $user): Kyc
     {
-        $kyc = Kyc::where('user_id', (string) $user->_id)
+        $kyc = Kyc::where('user_id', $user->id)
             ->where('status', 'verified')
             ->latest()
             ->first();

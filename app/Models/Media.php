@@ -2,21 +2,18 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Media extends Model
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'media';
-
     protected $fillable = [
         'file_name',
-        'file_path',       // path in Cloudflare R2
-        'file_url',        // public URL
-        'file_type',       // image | pdf | doc
-        'mime_type',       // image/jpeg, application/pdf etc
-        'file_size',       // in bytes
-        'uploaded_by',     // user _id
+        'file_path',
+        'file_url',
+        'file_type',
+        'mime_type',
+        'file_size',
+        'uploaded_by',
     ];
 
     protected function casts(): array

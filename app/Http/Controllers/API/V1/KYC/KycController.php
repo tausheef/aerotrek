@@ -23,7 +23,7 @@ class KycController extends Controller
     {
         $user = JWTAuth::user();
 
-        $kyc = Kyc::where('user_id', (string) $user->_id)
+        $kyc = Kyc::where('user_id', $user->id)
             ->latest()
             ->first();
 

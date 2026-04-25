@@ -116,7 +116,7 @@ class RateCalculationService
     private function getDHLRate(string $country, float $weight, string $shipmentType): ?array
     {
         $zone = RateZone::where('carrier', 'DHL')
-            ->where('countries', $country)
+            ->whereJsonContains('countries', $country)
             ->first()?->zone;
 
         if (! $zone) return null;
@@ -145,7 +145,7 @@ class RateCalculationService
     private function getFedExRate(string $country, float $weight, string $shipmentType): ?array
     {
         $zone = RateZone::where('carrier', 'FedEx')
-            ->where('countries', $country)
+            ->whereJsonContains('countries', $country)
             ->first()?->zone;
 
         if (! $zone) return null;
@@ -190,7 +190,7 @@ class RateCalculationService
     private function getAramexRate(string $country, float $weight, string $shipmentType): ?array
     {
         $zones = RateZone::where('carrier', 'Aramex')
-            ->where('countries', $country)
+            ->whereJsonContains('countries', $country)
             ->get();
 
         if ($zones->isEmpty()) return null;
@@ -231,7 +231,7 @@ class RateCalculationService
     private function getUPSRate(string $country, float $weight, string $shipmentType): ?array
     {
         $zone = RateZone::where('carrier', 'UPS')
-            ->where('countries', $country)
+            ->whereJsonContains('countries', $country)
             ->first()?->zone;
 
         if (! $zone) return null;
@@ -291,7 +291,7 @@ class RateCalculationService
     private function getSelfEuropeRate(string $country, float $weight): ?array
     {
         $zone = RateZone::where('carrier', 'SELF-EUROPE')
-            ->where('countries', $country)
+            ->whereJsonContains('countries', $country)
             ->first()?->zone;
 
         if (! $zone) return null;
@@ -325,7 +325,7 @@ class RateCalculationService
     private function getSelfDubaiRate(string $country, float $weight, int $packageCount): ?array
     {
         $zone = RateZone::where('carrier', 'SELF-DUBAI')
-            ->where('countries', $country)
+            ->whereJsonContains('countries', $country)
             ->first()?->zone;
 
         if (! $zone) return null;

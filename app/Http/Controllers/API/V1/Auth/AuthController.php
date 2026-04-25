@@ -26,7 +26,6 @@ class AuthController extends Controller
             'password'       => $request->password,
             'account_type'   => $request->account_type,
             'company_name'   => $request->company_name ?? null,
-            'wallet_balance' => 0.0,
             'kyc_status'     => 'pending',
             'is_admin'       => false,
             'email_verified' => false,

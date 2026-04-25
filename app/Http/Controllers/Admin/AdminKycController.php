@@ -70,7 +70,7 @@ class AdminKycController extends Controller
             return $this->errorResponse('KYC already verified.', 400);
         }
 
-        $kyc = $this->kycService->approve($kyc, (string) $admin->_id);
+        $kyc = $this->kycService->approve($kyc, $admin->id);
 
         return $this->successResponse(
             data:    ['kyc' => $kyc],
@@ -95,7 +95,7 @@ class AdminKycController extends Controller
             return $this->errorResponse('Cannot reject an already verified KYC.', 400);
         }
 
-        $kyc = $this->kycService->reject($kyc, (string) $admin->_id, $request->reason);
+        $kyc = $this->kycService->reject($kyc, $admin->id, $request->reason);
 
         return $this->successResponse(
             data:    ['kyc' => $kyc],

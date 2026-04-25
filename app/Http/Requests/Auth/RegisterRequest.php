@@ -15,8 +15,8 @@ class RegisterRequest extends FormRequest
     {
         return [
             'name'         => ['required', 'string', 'min:2', 'max:100'],
-            'email'        => ['required', 'email', 'unique:mongodb.users,email'],
-            'phone'        => ['required', 'string', 'min:10', 'max:15', 'unique:mongodb.users,phone'],
+            'email'        => ['required', 'email', 'unique:users,email'],
+            'phone'        => ['required', 'string', 'min:10', 'max:15', 'unique:users,phone'],
             'password'     => ['required', 'string', 'min:8', 'confirmed'],
             'account_type' => ['required', 'in:individual,company'],
             'company_name' => ['required_if:account_type,company', 'nullable', 'string', 'max:150'],

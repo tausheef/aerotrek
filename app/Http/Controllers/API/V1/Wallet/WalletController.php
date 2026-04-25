@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\API\V1\Wallet;
 
 use App\Http\Controllers\Controller;
-use App\Models\WalletTransaction;
 use App\Services\Wallet\WalletService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -40,14 +39,24 @@ class WalletController extends Controller
     {
         $user = JWTAuth::user();
 
-        $transactions = WalletTransaction::where('user_id', (string) $user->_id)
+        $transactions = $user->transactions()
             ->when($request->type, fn($q) => $q->where('type', $request->type))
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
+        $formatted = $transactions->through(fn($txn) => [
+            'id'           => $txn->uuid,
+            'type'         => $txn->type,
+            'amount'       => $txn->amount / 100,
+            'description'  => $txn->meta['description'] ?? null,
+            'reference_id' => $txn->meta['reference_id'] ?? null,
+            'gateway'      => $txn->meta['payment_gateway'] ?? null,
+            'status'       => $txn->confirmed ? 'completed' : 'pending',
+            'created_at'   => $txn->created_at?->toISOString(),
+        ]);
+
         return $this->successResponse(data: [
-            'transactions'   => $transactions,
+            'transactions'   => $formatted,
             'wallet_balance' => $this->walletService->getBalance($user),
         ]);
     }

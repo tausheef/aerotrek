@@ -16,7 +16,7 @@ class AddressController extends Controller
     // GET /api/v1/user/addresses
     public function index(): JsonResponse
     {
-        $addresses = Address::where('user_id', JWTAuth::user()->_id)
+        $addresses = Address::where('user_id', JWTAuth::user()->id)
             ->orderBy('is_default', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -41,7 +41,7 @@ class AddressController extends Controller
             'is_default'    => ['boolean'],
         ]);
 
-        $userId = JWTAuth::user()->_id;
+        $userId = JWTAuth::user()->id;
 
         // If setting as default, unset all others
         if ($request->boolean('is_default')) {
@@ -76,8 +76,8 @@ class AddressController extends Controller
     // PUT /api/v1/user/addresses/{id}
     public function update(Request $request, string $id): JsonResponse
     {
-        $userId  = JWTAuth::user()->_id;
-        $address = Address::where('_id', $id)
+        $userId  = JWTAuth::user()->id;
+        $address = Address::where('id', $id)
             ->where('user_id', $userId)
             ->firstOrFail();
 
@@ -115,8 +115,8 @@ class AddressController extends Controller
     // DELETE /api/v1/user/addresses/{id}
     public function destroy(string $id): JsonResponse
     {
-        $address = Address::where('_id', $id)
-            ->where('user_id', JWTAuth::user()->_id)
+        $address = Address::where('id', $id)
+            ->where('user_id', JWTAuth::user()->id)
             ->firstOrFail();
 
         $address->delete();
@@ -127,11 +127,11 @@ class AddressController extends Controller
     // PUT /api/v1/user/addresses/{id}/default
     public function setDefault(string $id): JsonResponse
     {
-        $userId = JWTAuth::user()->_id;
+        $userId = JWTAuth::user()->id;
 
         Address::where('user_id', $userId)->update(['is_default' => false]);
 
-        $address = Address::where('_id', $id)
+        $address = Address::where('id', $id)
             ->where('user_id', $userId)
             ->firstOrFail();
 

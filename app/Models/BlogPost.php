@@ -2,13 +2,10 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class BlogPost extends Model
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'blog_posts';
-
     protected $fillable = [
         'title',
         'slug',
@@ -31,7 +28,11 @@ class BlogPost extends Model
         ];
     }
 
-    // Scope - only published posts for public
+    public function category()
+    {
+        return $this->belongsTo(BlogCategory::class);
+    }
+
     public function scopePublished($query)
     {
         return $query->where('is_published', true);

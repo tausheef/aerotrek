@@ -2,22 +2,19 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class RatePricing extends Model
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'rate_pricing';
-
     protected $fillable = [
-        'carrier',          // DHL | FedEx | Aramex | UPS etc
-        'zone',             // Zone 1 | Zone A | UAE-PPX | Metro etc
-        'shipment_type',    // Document | Non-Document | Envelope | Pak | C2C | Per-KG-30Plus
-        'weight',           // 0.5 | 1 | 1.5 ... 30
-        'price',            // INR price
-        'is_per_kg',        // true = this is a per-kg rate (for weight > slab)
-        'tier',             // above_10 | below_10 (for SELF services)
-        'route',            // YVR | YYZ (for Canada)
+        'carrier',
+        'shipment_type',
+        'zone',
+        'weight',
+        'price',
+        'is_per_kg',
+        'tier',
+        'route',
     ];
 
     protected function casts(): array
@@ -29,9 +26,6 @@ class RatePricing extends Model
         ];
     }
 
-    /**
-     * Find the price for given parameters
-     */
     public static function findPrice(
         string $carrier,
         string $zone,

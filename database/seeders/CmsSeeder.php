@@ -8,16 +8,21 @@ use App\Models\BlogPost;
 use App\Models\Faq;
 use App\Models\SiteSetting;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class CmsSeeder extends Seeder
 {
     public function run(): void
     {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
         $this->seedPages();
         $this->seedBlogCategories();
         $this->seedBlogPosts();
         $this->seedFaqs();
         $this->seedSiteSettings();
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         $this->command->info('✅ CMS collections seeded successfully.');
     }
@@ -110,7 +115,7 @@ class CmsSeeder extends Seeder
                 'excerpt'        => 'Everything you need to know about international shipping — from packaging to customs.',
                 'content'        => '<h2>Getting Started</h2><p>International shipping can seem complex, but with the right knowledge it\'s straightforward. Here\'s everything you need to know...</p>',
                 'featured_image' => null,
-                'category_id'    => $category?->_id,
+                'category_id'    => $category?->id,
                 'author_id'      => null,
                 'meta_title'     => 'How to Ship Internationally - AeroTrek Guide',
                 'meta_description' => 'Complete guide to international shipping. Learn about packaging, customs, carriers and more.',
@@ -123,7 +128,7 @@ class CmsSeeder extends Seeder
                 'excerpt'        => 'A detailed comparison of the top international carriers to help you choose the right one.',
                 'content'        => '<h2>Overview</h2><p>Choosing the right carrier depends on your destination, weight, and budget. Let\'s compare the top three...</p>',
                 'featured_image' => null,
-                'category_id'    => $category?->_id,
+                'category_id'    => $category?->id,
                 'author_id'      => null,
                 'meta_title'     => 'DHL vs FedEx vs Aramex Comparison',
                 'meta_description' => 'Compare DHL, FedEx and Aramex for international shipping rates, speed and reliability.',
@@ -136,7 +141,7 @@ class CmsSeeder extends Seeder
                 'excerpt'        => 'New EU customs regulations are coming in 2026. Here is what every small shipper needs to prepare for.',
                 'content'        => '<h2>What is Changing</h2><p>The European Union has announced significant changes to import regulations effective 2026...</p>',
                 'featured_image' => null,
-                'category_id'    => $category?->_id,
+                'category_id'    => $category?->id,
                 'author_id'      => null,
                 'meta_title'     => 'EU Import Changes 2026 - AeroTrek',
                 'meta_description' => 'Learn about EU import regulation changes for 2026 and how they affect your international shipments.',
@@ -319,6 +324,9 @@ class CmsSeeder extends Seeder
         ];
 
         foreach ($settings as $setting) {
+            if (is_array($setting['value'])) {
+                $setting['value'] = json_encode($setting['value']);
+            }
             SiteSetting::create($setting);
         }
 

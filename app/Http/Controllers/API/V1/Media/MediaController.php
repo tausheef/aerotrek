@@ -39,11 +39,11 @@ class MediaController extends Controller
             'file_type'   => $fileType,
             'mime_type'   => $mimeType,
             'file_size'   => $file->getSize(),
-            'uploaded_by' => (string) JWTAuth::user()->_id,
+            'uploaded_by' => JWTAuth::user()->id,
         ]);
 
         return $this->successResponse(
-            data: ['media' => $media->only(['_id', 'file_name', 'file_url', 'file_type', 'mime_type', 'file_size'])],
+            data: ['media' => $media->only(['id', 'file_name', 'file_url', 'file_type', 'mime_type', 'file_size'])],
             message: 'File uploaded.',
             statusCode: 201
         );

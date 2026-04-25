@@ -2,36 +2,34 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Kyc extends Model
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'kyc';
+    protected $table = 'kycs';
 
     protected $fillable = [
         'user_id',
-        'account_type',     // individual | company
-        'document_type',    // aadhaar | pan | gst | company_pan
+        'account_type',
+        'document_type',
         'document_number',
-        'document_image',   // file path (Cloudflare R2 later)
-        'status',           // pending | verified | rejected | auto_verified
+        'document_image',
+        'status',
         'rejection_reason',
-        'verified_by',      // admin user_id (manual) or 'system' (automated)
+        'verified_by',
         'verified_at',
-        'verification_driver', // manual | surepass
-        'verification_response', // raw API response stored for audit
+        'verification_driver',
+        'verification_response',
     ];
 
     protected function casts(): array
     {
         return [
-            'verified_at'            => 'datetime',
-            'verification_response'  => 'array',
+            'verified_at'           => 'datetime',
+            'verification_response' => 'array',
         ];
     }
 
-    // Document types per account type
     public static function allowedDocuments(string $accountType): array
     {
         return match ($accountType) {

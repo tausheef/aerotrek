@@ -2,17 +2,14 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Faq extends Model
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'faqs';
-
     protected $fillable = [
         'question',
         'answer',
-        'category',   // shipping | payment | tracking | general
+        'category',
         'order',
         'is_published',
     ];

@@ -132,9 +132,9 @@ class ShipmentController extends Controller
         }
 
         // Check wallet
-        if ($user->wallet_balance < $request->price) {
+        if ($user->balanceFloat < $request->price) {
             return $this->errorResponse(
-                'Insufficient wallet balance. Current balance: ₹' . $user->wallet_balance,
+                'Insufficient wallet balance. Current balance: ₹' . $user->balanceFloat,
                 400
             );
         }
@@ -152,7 +152,7 @@ class ShipmentController extends Controller
                     'tracking_no'    => $shipment->tracking_no,
                     'label_url'      => $shipment->label_url,
                     'invoice_url'    => $shipment->invoice_url,
-                    'wallet_balance' => $user->fresh()->wallet_balance,
+                    'wallet_balance' => $user->fresh()->balanceFloat,
                 ],
                 message: 'Shipment booked successfully!',
                 statusCode: 201
@@ -170,7 +170,7 @@ class ShipmentController extends Controller
     {
         $user = JWTAuth::user();
 
-        $shipments = Shipment::forUser((string) $user->_id)
+        $shipments = Shipment::forUser($user->id)
             ->when($request->status, fn($q) => $q->byStatus($request->status))
             ->orderBy('created_at', 'desc')
             ->paginate(10);
@@ -185,8 +185,8 @@ class ShipmentController extends Controller
     public function show(string $id): JsonResponse
     {
         $user     = JWTAuth::user();
-        $shipment = Shipment::where('_id', $id)
-            ->where('user_id', (string) $user->_id)
+        $shipment = Shipment::where('id', $id)
+            ->where('user_id', $user->id)
             ->firstOrFail();
 
         return $this->successResponse(data: ['shipment' => $shipment]);

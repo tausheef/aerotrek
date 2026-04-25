@@ -32,7 +32,7 @@ class ProfileController extends Controller
 
         $request->validate([
             'name'         => ['sometimes', 'string', 'min:2', 'max:100'],
-            'phone'        => ['sometimes', 'string', 'min:10', 'max:15', 'unique:mongodb.users,phone,' . $user->_id . ',_id'],
+            'phone'        => ['sometimes', 'string', 'min:10', 'max:15', 'unique:users,phone,' . $user->id],
             'company_name' => ['sometimes', 'nullable', 'string', 'max:150'],
         ]);
 
@@ -64,7 +64,7 @@ class ProfileController extends Controller
         $file    = $request->file('avatar');
         $storage = new StorageService();
 
-        $path = $storage->uploadProfilePicture((string) $user->_id, $file);
+        $path = $storage->uploadProfilePicture((string) $user->id, $file);
         $url  = $storage->url($path);
 
         $user->update(['avatar_url' => $url]);
@@ -76,7 +76,7 @@ class ProfileController extends Controller
             'file_type'   => 'image',
             'mime_type'   => $file->getMimeType(),
             'file_size'   => $file->getSize(),
-            'uploaded_by' => (string) $user->_id,
+            'uploaded_by' => (string) $user->id,
         ]);
 
         return $this->successResponse(data: ['avatar_url' => $url], message: 'Avatar updated.');
