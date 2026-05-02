@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\V1\Auth\AuthController;
+use App\Http\Controllers\API\V1\Booking\ManualBookingController;
 use App\Http\Controllers\API\V1\Booking\ShipmentController;
 use App\Http\Controllers\API\V1\CMS\CmsController;
 use App\Http\Controllers\API\V1\KYC\KycController;
@@ -12,6 +13,8 @@ use App\Http\Controllers\API\V1\User\ProfileController;
 use App\Http\Controllers\API\V1\Wallet\WalletController;
 use App\Http\Controllers\Admin\AdminCmsController;
 use App\Http\Controllers\Admin\AdminKycController;
+use App\Http\Controllers\Admin\AdminPlatformController;
+use App\Http\Controllers\Admin\AdminShipmentController;
 use App\Http\Controllers\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -86,11 +89,12 @@ Route::prefix('v1')->group(function () {
 
         // Shipment Booking (KYC verified required)
         Route::prefix('shipments')->middleware('kyc.verified')->group(function () {
-            Route::get('/',           [ShipmentController::class, 'index']);
-            Route::get('{id}',        [ShipmentController::class, 'show']);
-            Route::post('book',       [ShipmentController::class, 'book']);
-            Route::post('send-otp',   [ShipmentController::class, 'sendOtp']);    // DHL only
-            Route::post('verify-otp', [ShipmentController::class, 'verifyOtp']); // DHL only
+            Route::get('/',              [ShipmentController::class, 'index']);
+            Route::get('{id}',           [ShipmentController::class, 'show']);
+            Route::post('book',          [ShipmentController::class, 'book']);
+            Route::post('manual-book',   [ManualBookingController::class, 'store']);
+            Route::post('send-otp',      [ShipmentController::class, 'sendOtp']);    // DHL only
+            Route::post('verify-otp',    [ShipmentController::class, 'verifyOtp']); // DHL only
         });
     });
 
@@ -120,10 +124,18 @@ Route::prefix('v1')->group(function () {
 
         // Shipment Management
         Route::prefix('shipments')->group(function () {
-            Route::get('/', function () {
-                $shipments = \App\Models\Shipment::orderBy('created_at', 'desc')->paginate(20);
-                return response()->json(['success' => true, 'shipments' => $shipments]);
-            });
+            Route::get('/',                              [AdminShipmentController::class, 'all']);
+            Route::get('manual',                         [AdminShipmentController::class, 'index']);
+            Route::post('{id}/accept',                   [AdminShipmentController::class, 'accept']);
+            Route::post('{id}/reject',                   [AdminShipmentController::class, 'reject']);
+            Route::put('{id}/update-booking',            [AdminShipmentController::class, 'updateBooking']);
+            Route::post('{id}/add-tracking-event',       [AdminShipmentController::class, 'addTrackingEvent']);
+        });
+
+        // Platform Toggle (enable/disable Overseas API, Shiprocket)
+        Route::prefix('platforms')->group(function () {
+            Route::get('/',                   [AdminPlatformController::class, 'index']);
+            Route::post('{platform}/toggle',  [AdminPlatformController::class, 'toggle']);
         });
 
         // CMS Management

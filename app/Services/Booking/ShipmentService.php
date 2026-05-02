@@ -4,6 +4,7 @@ namespace App\Services\Booking;
 
 use App\Models\Kyc;
 use App\Models\Shipment;
+use App\Models\SiteSetting;
 use App\Models\User;
 use App\Services\External\OverseasApiService;
 use App\Services\Shipment\AerotrekIdGenerator;
@@ -23,6 +24,10 @@ class ShipmentService
      */
     public function sendDhlOtp(User $user, array $bookingData): array
     {
+        if (SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
+            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
+        }
+
         $kyc = $this->getUserKyc($user);
 
         return $this->overseas->sendDhlOtp([
@@ -42,6 +47,10 @@ class ShipmentService
      */
     public function verifyDhlOtp(User $user, array $bookingData, string $otp): array
     {
+        if (SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
+            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
+        }
+
         $kyc = $this->getUserKyc($user);
 
         return $this->overseas->verifyDhlOtp([
@@ -62,6 +71,10 @@ class ShipmentService
      */
     public function book(User $user, array $data): Shipment
     {
+        if (SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
+            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
+        }
+
         $kyc = $this->getUserKyc($user);
 
         // Generate Aerotrek ID before anything else — we own this no matter what happens

@@ -8,6 +8,7 @@ class Shipment extends Model
 {
     protected $fillable = [
         'aerotrek_id',
+        'booking_type',
         'platform',
         'platform_ref_id',
         'user_id',
@@ -31,6 +32,8 @@ class Shipment extends Model
         'invoice_date',
         'duty_tax',
         'reason_for_export',
+        'notes',
+        'rejection_reason',
         'transaction_id',
         'wallet_transaction_id',
         'overseas_response',
@@ -52,6 +55,11 @@ class Shipment extends Model
         ];
     }
 
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class);
+    }
+
     public function scopeForUser($query, string $userId)
     {
         return $query->where('user_id', $userId);
@@ -60,6 +68,11 @@ class Shipment extends Model
     public function scopeByStatus($query, string $status)
     {
         return $query->where('status', $status);
+    }
+
+    public function scopeByBookingType($query, string $type)
+    {
+        return $query->where('booking_type', $type);
     }
 
     public static function findByIdentifier(string $identifier): ?self
