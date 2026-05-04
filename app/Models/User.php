@@ -29,6 +29,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         'email_verified',
         'phone_verified',
         'avatar_url',
+        'shipment_limit',
     ];
 
     protected $hidden = [
@@ -46,6 +47,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
             'is_admin'          => 'boolean',
             'email_verified'    => 'boolean',
             'phone_verified'    => 'boolean',
+            'shipment_limit'    => 'integer',
         ];
     }
 

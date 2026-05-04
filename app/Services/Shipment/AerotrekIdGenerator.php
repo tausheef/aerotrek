@@ -2,25 +2,41 @@
 
 namespace App\Services\Shipment;
 
+use App\Exceptions\ShipmentLimitReachedException;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class AerotrekIdGenerator
 {
-    public function generate(): string
+    public function generate(User $user): string
     {
-        $date    = now()->format('Ymd');
-        $counter = $this->nextCounter($date);
+        $this->enforceLimit($user);
 
-        return sprintf('ATK-%s-%06d', $date, $counter);
+        $firstName = explode(' ', trim($user->name))[0];
+        $initials  = strtoupper(substr($firstName, 0, 1) . substr($firstName, -1));
+        $mmyy      = now()->format('my'); // e.g. "0626" for June 2026
+        $counter   = $this->nextCounter($user->id);
+
+        return sprintf('%s%s%03d', $initials, $mmyy, $counter);
     }
 
-    private function nextCounter(string $date): int
+    private function enforceLimit(User $user): void
     {
-        // Atomic upsert: insert with seq=1 or increment existing row
+        $seq = DB::table('atk_counters')
+            ->where('user_id', $user->id)
+            ->value('seq') ?? 0;
+
+        if ($seq >= $user->shipment_limit) {
+            throw new ShipmentLimitReachedException($user->shipment_limit);
+        }
+    }
+
+    private function nextCounter(string $userId): int
+    {
         DB::statement(
-            'INSERT INTO atk_counters (`date`, seq) VALUES (?, 1)
+            'INSERT INTO atk_counters (user_id, seq) VALUES (?, 1)
              ON DUPLICATE KEY UPDATE seq = LAST_INSERT_ID(seq + 1)',
-            [$date]
+            [$userId]
         );
 
         return (int) DB::select('SELECT LAST_INSERT_ID() AS id')[0]->id;

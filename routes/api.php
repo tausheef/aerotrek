@@ -9,10 +9,12 @@ use App\Http\Controllers\API\V1\Media\MediaController;
 use App\Http\Controllers\API\V1\Rate\RateCalculatorController;
 use App\Http\Controllers\API\V1\Tracking\TrackingController;
 use App\Http\Controllers\API\V1\User\AddressController;
+use App\Http\Controllers\API\V1\User\LimitExtensionController;
 use App\Http\Controllers\API\V1\User\ProfileController;
 use App\Http\Controllers\API\V1\Wallet\WalletController;
 use App\Http\Controllers\Admin\AdminCmsController;
 use App\Http\Controllers\Admin\AdminKycController;
+use App\Http\Controllers\Admin\AdminLimitController;
 use App\Http\Controllers\Admin\AdminPlatformController;
 use App\Http\Controllers\Admin\AdminShipmentController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -87,6 +89,9 @@ Route::prefix('v1')->group(function () {
         // Rate Calculator
         Route::post('rates/calculate', [RateCalculatorController::class, 'calculate']);
 
+        // Limit Extension Request
+        Route::post('limit/request', [LimitExtensionController::class, 'store']);
+
         // Shipment Booking (KYC verified required)
         Route::prefix('shipments')->middleware('kyc.verified')->group(function () {
             Route::get('/',              [ShipmentController::class, 'index']);
@@ -130,6 +135,13 @@ Route::prefix('v1')->group(function () {
             Route::post('{id}/reject',                   [AdminShipmentController::class, 'reject']);
             Route::put('{id}/update-booking',            [AdminShipmentController::class, 'updateBooking']);
             Route::post('{id}/add-tracking-event',       [AdminShipmentController::class, 'addTrackingEvent']);
+        });
+
+        // Limit Extension Requests
+        Route::prefix('limit-requests')->group(function () {
+            Route::get('/',           [AdminLimitController::class, 'index']);
+            Route::post('{id}/approve', [AdminLimitController::class, 'approve']);
+            Route::post('{id}/reject',  [AdminLimitController::class, 'reject']);
         });
 
         // Platform Toggle (enable/disable Overseas API, Shiprocket)

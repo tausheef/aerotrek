@@ -78,7 +78,7 @@ class ShipmentService
         $kyc = $this->getUserKyc($user);
 
         // Generate Aerotrek ID before anything else — we own this no matter what happens
-        $aerotrekId = $this->idGenerator->generate();
+        $aerotrekId = $this->idGenerator->generate($user);
 
         // Check wallet balance
         if ($user->balanceFloat < $data['price']) {

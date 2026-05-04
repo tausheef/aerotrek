@@ -73,7 +73,7 @@ class ManualBookingController extends Controller
         $goodsType = $request->goods_type === 'Document' ? 'Dox' : 'NDox';
 
         $shipment = Shipment::create([
-            'aerotrek_id'     => $this->idGenerator->generate(),
+            'aerotrek_id'     => $this->idGenerator->generate($user),
             'booking_type'    => 'manual',
             'platform'        => null,
             'user_id'         => $user->id,

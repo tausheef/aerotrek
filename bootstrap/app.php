@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ShipmentLimitReachedException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -42,6 +43,14 @@ return Application::configure(basePath: dirname(__DIR__))
                         'success' => false,
                         'message' => 'The requested resource was not found.',
                     ], 404);
+                }
+
+                if ($e instanceof ShipmentLimitReachedException) {
+                    return response()->json([
+                        'success'    => false,
+                        'message'    => $e->getMessage(),
+                        'error_code' => 'SHIPMENT_LIMIT_REACHED',
+                    ], 403);
                 }
             }
         });
