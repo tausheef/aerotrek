@@ -24,6 +24,12 @@ class LocalStorageDriver implements StorageDriverInterface
         return Storage::disk('public')->url($path);
     }
 
+    public function temporaryUrl(string $path, int $minutes = 60): string
+    {
+        // Local storage has no signing — return regular public URL
+        return $this->url($path);
+    }
+
     public function delete(string $path): bool
     {
         return Storage::disk('public')->delete($path);

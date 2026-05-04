@@ -94,6 +94,14 @@ class StorageService
     }
 
     /**
+     * Get a time-limited signed URL (use for sensitive files like KYC docs).
+     */
+    public function temporaryUrl(string $path, int $minutes = 60): string
+    {
+        return $this->driver->temporaryUrl($path, $minutes);
+    }
+
+    /**
      * Delete a file.
      */
     public function delete(string $path): bool

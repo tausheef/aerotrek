@@ -21,20 +21,20 @@ class KycService
     public function submit(User $user, array $data, $documentFile): Kyc
     {
         // Delete existing pending KYC if any
-        Kyc::where('user_id', $user->_id)
+        Kyc::where('user_id', $user->id)
             ->where('status', 'pending')
             ->delete();
 
         // Upload document image
         $imagePath = $this->storage->uploadKycDocument(
-            userId:       (string) $user->_id,
+            userId:       (string) $user->id,
             documentType: $data['document_type'],
             file:         $documentFile
         );
 
         // Create KYC record
         $kyc = Kyc::create([
-            'user_id'         => (string) $user->_id,
+            'user_id'         => (string) $user->id,
             'account_type'    => $user->account_type,
             'document_type'   => $data['document_type'],
             'document_number' => strtoupper($data['document_number']),
@@ -54,10 +54,8 @@ class KycService
             'verification_response'=> $result->data,
         ]);
 
-        // If auto-verified instantly — update user kyc_status
-        if ($result->status === 'verified') {
-            $user->update(['kyc_status' => 'verified']);
-        }
+        // Sync user kyc_status with verification result
+        $user->update(['kyc_status' => $result->status]);
 
         return $kyc->fresh();
     }
@@ -75,7 +73,7 @@ class KycService
         ]);
 
         // Update user kyc_status
-        User::where('_id', $kyc->user_id)
+        User::where('id', $kyc->user_id)
             ->update(['kyc_status' => 'verified']);
 
         return $kyc->fresh();
@@ -94,7 +92,7 @@ class KycService
         ]);
 
         // Update user kyc_status
-        User::where('_id', $kyc->user_id)
+        User::where('id', $kyc->user_id)
             ->update(['kyc_status' => 'rejected']);
 
         return $kyc->fresh();

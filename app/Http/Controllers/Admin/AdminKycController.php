@@ -38,7 +38,7 @@ class AdminKycController extends Controller
             $query->where('account_type', $request->account_type);
         }
 
-        $kycs = $query->orderBy('created_at', 'desc')->paginate(20);
+        $kycs = $query->with('user:id,name,email,phone')->orderBy('created_at', 'desc')->paginate(20);
 
         return $this->successResponse(data: ['kycs' => $kycs]);
     }
@@ -49,11 +49,11 @@ class AdminKycController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $kyc = Kyc::findOrFail($id);
+        $kyc = Kyc::with('user:id,name,email,phone')->findOrFail($id);
 
         return $this->successResponse(data: [
             'kyc'          => $kyc,
-            'document_url' => $this->storage->url($kyc->document_image),
+            'document_url' => $kyc->document_image ? $this->storage->temporaryUrl($kyc->document_image, 60) : null,
         ]);
     }
 

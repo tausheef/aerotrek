@@ -23,6 +23,11 @@ class R2StorageDriver implements StorageDriverInterface
         return Storage::disk('r2')->url($path);
     }
 
+    public function temporaryUrl(string $path, int $minutes = 60): string
+    {
+        return Storage::disk('r2')->temporaryUrl($path, now()->addMinutes($minutes));
+    }
+
     public function delete(string $path): bool
     {
         return Storage::disk('r2')->delete($path);

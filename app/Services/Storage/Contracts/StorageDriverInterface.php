@@ -15,6 +15,11 @@ interface StorageDriverInterface
     public function url(string $path): string;
 
     /**
+     * Get a time-limited signed URL (for private/sensitive files).
+     */
+    public function temporaryUrl(string $path, int $minutes = 60): string;
+
+    /**
      * Delete a file.
      */
     public function delete(string $path): bool;

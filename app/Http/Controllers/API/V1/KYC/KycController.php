@@ -30,8 +30,21 @@ class KycController extends Controller
         // Default to individual if account_type not set (old users)
         $accountType = $user->account_type ?? 'individual';
 
+        // Derive kyc_status from the actual KYC record (source of truth)
+        // Fixes: users.kyc_status defaults to 'pending' even before any submission
+        if (! $kyc) {
+            $kycStatus = 'not_submitted';
+        } else {
+            $kycStatus = $kyc->status;
+        }
+
+        // Keep users.kyc_status in sync
+        if ($user->kyc_status !== $kycStatus && $kycStatus !== 'not_submitted') {
+            $user->update(['kyc_status' => $kycStatus]);
+        }
+
         return $this->successResponse(data: [
-            'kyc_status'        => $user->kyc_status,
+            'kyc_status'        => $kycStatus,
             'account_type'      => $accountType,
             'kyc'               => $kyc,
             'allowed_documents' => Kyc::allowedDocuments($accountType),
