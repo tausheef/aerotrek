@@ -49,7 +49,7 @@ class RateCalculationService
             }
         }
 
-        usort($rates, fn($a, $b) => $a['price'] <=> $b['price']);
+        usort($rates, fn($a, $b) => $a['rate'] <=> $b['rate']);
 
         return [
             'destination'       => $country,
@@ -97,7 +97,7 @@ class RateCalculationService
         float   $actualWeight,
         float   $chargeableWeight
     ): ?array {
-        return match ($carrier) {
+        $rate = match ($carrier) {
             'DHL'            => $this->getDHLRate($country, $weight, $shipmentType),
             'FedEx'          => $this->getFedExRate($country, $weight, $shipmentType),
             'Aramex'         => $this->getAramexRate($country, $weight, $shipmentType),
@@ -110,6 +110,12 @@ class RateCalculationService
             'SELF-CANADA'    => $this->getSelfCanadaRate($country, $weight, $postcode),
             default          => null,
         };
+
+        if ($rate !== null) {
+            $rate['chargeable_weight'] = $chargeableWeight;
+        }
+
+        return $rate;
     }
 
     // ── DHL ───────────────────────────────────────────────────────────
@@ -134,10 +140,10 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => $type,
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'DHL Express',
-            'estimated_days' => $this->getDHLEstimatedDays($zone),
+            'service_name'   => 'DHL Express',
+            'estimated_delivery' => $this->getDHLEstimatedDays($zone),
         ];
     }
 
@@ -179,10 +185,10 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => $type,
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'FedEx International Priority',
-            'estimated_days' => $this->getFedExEstimatedDays($zone),
+            'service_name'   => 'FedEx International Priority',
+            'estimated_delivery' => $this->getFedExEstimatedDays($zone),
         ];
     }
 
@@ -220,10 +226,10 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => $type,
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'Aramex Priority Express',
-            'estimated_days' => '3-5 business days',
+            'service_name'   => 'Aramex Priority Express',
+            'estimated_delivery' => '3-5 business days',
         ];
     }
 
@@ -249,10 +255,10 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => $type,
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'UPS Worldwide Saver',
-            'estimated_days' => '3-5 business days',
+            'service_name'   => 'UPS Worldwide Saver',
+            'estimated_delivery' => '3-5 business days',
         ];
     }
 
@@ -280,10 +286,10 @@ class RateCalculationService
             'zone'           => 'UK',
             'shipment_type'  => 'Non-Document',
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'SELF UK (DPD)',
-            'estimated_days' => '4-6 business days',
+            'service_name'   => 'SELF UK (DPD)',
+            'estimated_delivery' => '4-6 business days',
         ];
     }
 
@@ -314,10 +320,10 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => 'Non-Document',
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'SELF Europe (DPD via Germany)',
-            'estimated_days' => '5-7 business days',
+            'service_name'   => 'SELF Europe (DPD via Germany)',
+            'estimated_delivery' => '5-7 business days',
         ];
     }
 
@@ -347,11 +353,11 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => 'Non-Document',
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'tier'           => $tier,
             'currency'       => 'INR',
-            'service'        => 'SELF Dubai (Direct)',
-            'estimated_days' => '2-4 business days',
+            'service_name'   => 'SELF Dubai (Direct)',
+            'estimated_delivery' => '2-4 business days',
         ];
     }
 
@@ -378,11 +384,11 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => 'Non-Document',
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'tier'           => $tier,
             'currency'       => 'INR',
-            'service'        => 'SELF Australia (Toll Express)',
-            'estimated_days' => '5-8 business days',
+            'service_name'   => 'SELF Australia (Toll Express)',
+            'estimated_delivery' => '5-8 business days',
         ];
     }
 
@@ -409,10 +415,10 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => 'Non-Document',
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'SELF New Zealand (NZ Post)',
-            'estimated_days' => '6-10 business days',
+            'service_name'   => 'SELF New Zealand (NZ Post)',
+            'estimated_delivery' => '6-10 business days',
         ];
     }
 
@@ -437,10 +443,10 @@ class RateCalculationService
             'zone'           => $zone,
             'shipment_type'  => 'Non-Document',
             'weight'         => $weight,
-            'price'          => $price,
+            'rate'          => $price,
             'currency'       => 'INR',
-            'service'        => 'SELF Canada (UPS Last Mile)',
-            'estimated_days' => '7-10 business days',
+            'service_name'   => 'SELF Canada (UPS Last Mile)',
+            'estimated_delivery' => '7-10 business days',
         ];
     }
 

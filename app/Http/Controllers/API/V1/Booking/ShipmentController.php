@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\API\V1\Booking;
 
+use App\Exceptions\ShipmentLimitReachedException;
 use App\Http\Controllers\Controller;
 use App\Models\Shipment;
 use App\Services\Booking\ShipmentService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class ShipmentController extends Controller
@@ -114,12 +116,16 @@ class ShipmentController extends Controller
             'packages.*.height'    => ['required', 'numeric'],
             'packages.*.weight'    => ['required', 'numeric'],
 
-            // Products
-            'products'             => ['required', 'array', 'min:1'],
-            'products.*.description' => ['required', 'string'],
-            'products.*.hsn_code'  => ['required', 'string'],
-            'products.*.qty'       => ['required', 'integer'],
-            'products.*.unit_rate' => ['required', 'numeric'],
+            // Products — required only for Non-Document shipments
+            'products' => Rule::when(
+                $request->goods_type === 'Non-Document',
+                ['required', 'array', 'min:1'],
+                ['nullable', 'array']
+            ),
+            'products.*.description' => ['required_if:goods_type,Non-Document', 'string'],
+            'products.*.hsn_code'    => ['required_if:goods_type,Non-Document', 'string'],
+            'products.*.qty'         => ['required_if:goods_type,Non-Document', 'integer'],
+            'products.*.unit_rate'   => ['required_if:goods_type,Non-Document', 'numeric'],
 
             // DHL only
             'transaction_id'       => ['nullable', 'string'],
@@ -158,6 +164,12 @@ class ShipmentController extends Controller
                 message: 'Shipment booked successfully!',
                 statusCode: 201
             );
+        } catch (ShipmentLimitReachedException $e) {
+            return response()->json([
+                'success'    => false,
+                'message'    => $e->getMessage(),
+                'error_code' => 'SHIPMENT_LIMIT_REACHED',
+            ], 403);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
