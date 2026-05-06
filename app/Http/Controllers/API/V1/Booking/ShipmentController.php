@@ -86,10 +86,11 @@ class ShipmentController extends Controller
     {
         $request->validate([
             // Carrier info
+            'service_type'         => ['required', 'in:standard,ecommerce,india_post'],
             'carrier'              => ['required', 'string'],
             'service_code'         => ['required', 'string'],
             'service_name'         => ['required', 'string'],
-            'network'              => ['required', 'string'],
+            'network'              => ['nullable', 'string'],
             'price'                => ['required', 'numeric', 'min:1'],
             'goods_type'           => ['required', 'in:Document,Non-Document'],
 

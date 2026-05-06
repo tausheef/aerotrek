@@ -7,6 +7,7 @@ use App\Models\Shipment;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Services\External\OverseasApiService;
+use App\Services\External\ShiprocketApiService;
 use App\Services\Shipment\AerotrekIdGenerator;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +16,7 @@ class ShipmentService
 {
     public function __construct(
         private OverseasApiService  $overseas,
+        private ShiprocketApiService $shiprocket,
         private WalletService       $wallet,
         private AerotrekIdGenerator $idGenerator,
     ) {}
@@ -66,76 +68,55 @@ class ShipmentService
     }
 
     /**
-     * Book shipment — main booking method.
-     * Works for all carriers. DHL requires transaction_id from OTP.
+     * Book shipment — routes to Overseas or Shiprocket automatically.
      */
     public function book(User $user, array $data): Shipment
     {
-        if (SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
-            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
-        }
+        $platform = $this->resolvePlatform($data);
 
-        $kyc = $this->getUserKyc($user);
+        $this->checkPlatformEnabled($platform);
 
-        // Generate Aerotrek ID before anything else — we own this no matter what happens
+        $kyc        = $this->getUserKyc($user);
         $aerotrekId = $this->idGenerator->generate($user);
 
-        // Check wallet balance
         if ($user->balanceFloat < $data['price']) {
             throw new \Exception('Insufficient wallet balance. Please recharge your wallet.');
         }
 
-        // Build shipment data for Overseas API
-        $shipmentData = [
-            'sender' => [
-                'name'          => $user->name,
-                'contact_person'=> $user->name,
-                'address_line1' => $data['sender_address_line1'],
-                'address_line2' => $data['sender_address_line2'] ?? '',
-                'city'          => $data['sender_city'] ?? 'Delhi',
-                'state'         => $data['sender_state'] ?? 'DL',
-                'pincode'       => $data['sender_pincode'],
-                'phone'         => $user->phone,
-                'email'         => $user->email,
-                'kyc_type'      => $this->mapKycType($kyc->document_type),
-                'kyc_no'        => $kyc->document_number,
-            ],
-            'receiver' => [
-                'name'          => $data['receiver_name'],
-                'contact_person'=> $data['receiver_contact_person'] ?? $data['receiver_name'],
-                'address_line1' => $data['receiver_address_line1'],
-                'address_line2' => $data['receiver_address_line2'] ?? '',
-                'city'          => $data['receiver_city'],
-                'state'         => $data['receiver_state'],
-                'zipcode'       => $data['receiver_zipcode'],
-                'country_code'  => $data['receiver_country_code'],
-                'phone'         => $data['receiver_phone'],
-                'email'         => $data['receiver_email'] ?? '',
-                'vat_id'        => $data['receiver_vat_id'] ?? '',
-            ],
-            'service_code'   => $data['service_code'],
-            'goods_type'     => $data['goods_type'] === 'Document' ? 'Dox' : 'NDox',
-            'package_type'   => $data['package_type'] ?? 'PACKAGE',
-            'packages'       => $data['packages'],
-            'products'       => $data['products'],
-            'invoice_no'     => $data['invoice_no'] ?? 'INV-' . time(),
-            'invoice_date'   => $data['invoice_date'] ?? now()->format('Y-m-d\TH:i:s\Z'),
-            'invoice_currency'=> 'INR',
-            'terms_of_sale'  => $data['terms_of_sale'] ?? 'FOB',
-            'reason_for_export' => $data['reason_for_export'] ?? 'GIFT',
-            'duty_tax'       => $data['duty_tax'] ?? 'DDU',
-            'transaction_id' => $data['transaction_id'] ?? '', // DHL only
-            'shipper_kyc_base64' => $this->getKycImageBase64($kyc),
-            'kyc_filename'   => $kyc->document_type . '.pdf',
-            'freight_charge' => 0,
-            'insurance_charge'=> 0,
+        // Build normalized sender/receiver for both APIs
+        $sender = [
+            'name'          => $user->name,
+            'contact_person'=> $user->name,
+            'address_line1' => $data['sender_address_line1'],
+            'address_line2' => $data['sender_address_line2'] ?? '',
+            'city'          => $data['sender_city'] ?? 'Delhi',
+            'state'         => $data['sender_state'] ?? 'DL',
+            'pincode'       => $data['sender_pincode'],
+            'phone'         => $user->phone,
+            'email'         => $user->email,
+            'kyc_type'      => $this->mapKycType($kyc->document_type),
+            'kyc_no'        => $kyc->document_number,
         ];
 
-        // Call Overseas API
-        $response = $this->overseas->createShipment($shipmentData);
+        $receiver = [
+            'name'          => $data['receiver_name'],
+            'contact_person'=> $data['receiver_contact_person'] ?? $data['receiver_name'],
+            'address_line1' => $data['receiver_address_line1'],
+            'address_line2' => $data['receiver_address_line2'] ?? '',
+            'city'          => $data['receiver_city'],
+            'state'         => $data['receiver_state'],
+            'zipcode'       => $data['receiver_zipcode'],
+            'country_code'  => $data['receiver_country_code'],
+            'phone'         => $data['receiver_phone'],
+            'email'         => $data['receiver_email'] ?? '',
+            'vat_id'        => $data['receiver_vat_id'] ?? '',
+        ];
 
-        if (! $response['success']) {
-            throw new \Exception('Booking failed. Please try again.');
+        // Call the right platform
+        if ($platform === 'shiprocket') {
+            $response = $this->bookViaShinprocket($aerotrekId, $data, $sender, $receiver);
+        } else {
+            $response = $this->bookViaOverseas($data, $sender, $receiver, $kyc);
         }
 
         // Deduct wallet
@@ -146,38 +127,141 @@ class ShipmentService
             referenceId: $response['awb_no']
         );
 
-        // Save shipment
-        $shipment = Shipment::create([
-            'aerotrek_id'          => $aerotrekId,
-            'platform'             => 'overseas',
-            'platform_ref_id'      => $response['awb_no'], // Overseas's own reference
-            'user_id'              => $user->id,
-            'awb_no'               => $response['awb_no'],
-            'tracking_no'          => $response['tracking_no'],
-            'carrier'              => $data['carrier'],
-            'service_code'         => $data['service_code'],
-            'service_name'         => $data['service_name'],
-            'network'              => $data['network'],
-            'status'               => 'booked',
-            'goods_type'           => $data['goods_type'],
-            'label_url'            => $response['label_url'],
-            'invoice_url'          => $response['invoice_url'],
-            'price'                => $data['price'],
-            'chargeable_weight'    => $response['chargeable_weight'],
-            'sender'               => $shipmentData['sender'],
-            'receiver'             => $shipmentData['receiver'],
-            'packages'             => $data['packages'],
-            'products'             => $data['products'],
-            'invoice_no'           => $shipmentData['invoice_no'],
-            'invoice_date'         => $shipmentData['invoice_date'],
-            'duty_tax'             => $shipmentData['duty_tax'],
-            'reason_for_export'    => $shipmentData['reason_for_export'],
-            'transaction_id'       => $data['transaction_id'] ?? null,
-            'wallet_transaction_id'=> (string) $walletTxn->id,
-            'overseas_response'    => $response['raw_response'],
-        ]);
+        $shipmentFields = [
+            'aerotrek_id'       => $aerotrekId,
+            'platform'          => $platform,
+            'platform_ref_id'   => $response['platform_ref_id'],
+            'user_id'           => $user->id,
+            'awb_no'            => $response['awb_no'],
+            'tracking_no'       => $response['tracking_no'],
+            'carrier'           => $data['carrier'],
+            'service_code'      => $data['service_code'],
+            'service_name'      => $data['service_name'],
+            'network'           => $data['network'],
+            'status'            => 'booked',
+            'goods_type'        => $data['goods_type'],
+            'label_url'         => $response['label_url'],
+            'invoice_url'       => $response['invoice_url'],
+            'price'             => $data['price'],
+            'chargeable_weight' => $response['chargeable_weight'] ?? null,
+            'sender'            => $sender,
+            'receiver'          => $receiver,
+            'packages'          => $data['packages'],
+            'products'          => $data['products'],
+            'invoice_no'        => $data['invoice_no'] ?? 'INV-' . time(),
+            'invoice_date'      => $data['invoice_date'] ?? now()->format('Y-m-d\TH:i:s\Z'),
+            'duty_tax'          => $data['duty_tax'] ?? 'DDU',
+            'reason_for_export' => $data['reason_for_export'] ?? 'GIFT',
+            'transaction_id'    => $data['transaction_id'] ?? null,
+            'wallet_transaction_id' => (string) $walletTxn->id,
+        ];
 
-        return $shipment;
+        // Store raw API response in the correct column
+        if ($platform === 'shiprocket') {
+            $shipmentFields['shiprocket_response'] = $response['raw_response'];
+        } else {
+            $shipmentFields['overseas_response'] = $response['raw_response'];
+        }
+
+        return Shipment::create($shipmentFields);
+    }
+
+    // ── Platform routing ──────────────────────────────────────────────
+
+    /**
+     * Decide which platform to use based on carrier and network type.
+     * This is internal — never expose 'platform' to the user.
+     */
+    private function resolvePlatform(array $data): string
+    {
+        // service_type comes from frontend booking form
+        $serviceType = strtolower($data['service_type'] ?? '');
+
+        if (in_array($serviceType, ['ecommerce', 'india_post'])) {
+            return 'shiprocket';
+        }
+
+        // Legacy fallback: check carrier name
+        if (in_array($data['carrier'] ?? '', config('shiprocket.carriers', []))) {
+            return 'shiprocket';
+        }
+
+        return 'overseas';
+    }
+
+    private function checkPlatformEnabled(string $platform): void
+    {
+        if ($platform === 'overseas' && SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
+            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
+        }
+
+        if ($platform === 'shiprocket' && SiteSetting::get('platform_shiprocket_enabled', '1') !== '1') {
+            throw new \Exception('Shiprocket is currently disabled by admin. Please try again later.');
+        }
+    }
+
+    // ── Platform-specific booking calls ──────────────────────────────
+
+    private function bookViaShinprocket(string $aerotrekId, array $data, array $sender, array $receiver): array
+    {
+        $response = $this->shiprocket->createShipment($aerotrekId, array_merge($data, [
+            'sender'   => $sender,
+            'receiver' => $receiver,
+        ]));
+
+        if (! $response['success']) {
+            throw new \Exception('Shiprocket booking failed. Please try again.');
+        }
+
+        return [
+            'awb_no'           => $response['awb_no'],
+            'tracking_no'      => $response['tracking_no'],
+            'label_url'        => $response['label_url'],
+            'invoice_url'      => null,
+            'chargeable_weight'=> null,
+            'platform_ref_id'  => (string) ($response['order_id'] ?? $response['awb_no']),
+            'raw_response'     => $response['raw_response'],
+        ];
+    }
+
+    private function bookViaOverseas(array $data, array $sender, array $receiver, $kyc): array
+    {
+        $shipmentData = [
+            'sender'             => $sender,
+            'receiver'           => $receiver,
+            'service_code'       => $data['service_code'],
+            'goods_type'         => $data['goods_type'] === 'Document' ? 'Dox' : 'NDox',
+            'package_type'       => $data['package_type'] ?? 'PACKAGE',
+            'packages'           => $data['packages'],
+            'products'           => $data['products'],
+            'invoice_no'         => $data['invoice_no'] ?? 'INV-' . time(),
+            'invoice_date'       => $data['invoice_date'] ?? now()->format('Y-m-d\TH:i:s\Z'),
+            'invoice_currency'   => 'INR',
+            'terms_of_sale'      => $data['terms_of_sale'] ?? 'FOB',
+            'reason_for_export'  => $data['reason_for_export'] ?? 'GIFT',
+            'duty_tax'           => $data['duty_tax'] ?? 'DDU',
+            'transaction_id'     => $data['transaction_id'] ?? '',
+            'shipper_kyc_base64' => $this->getKycImageBase64($kyc),
+            'kyc_filename'       => $kyc->document_type . '.pdf',
+            'freight_charge'     => 0,
+            'insurance_charge'   => 0,
+        ];
+
+        $response = $this->overseas->createShipment($shipmentData);
+
+        if (! $response['success']) {
+            throw new \Exception('Booking failed. Please try again.');
+        }
+
+        return [
+            'awb_no'           => $response['awb_no'],
+            'tracking_no'      => $response['tracking_no'],
+            'label_url'        => $response['label_url'],
+            'invoice_url'      => $response['invoice_url'],
+            'chargeable_weight'=> $response['chargeable_weight'],
+            'platform_ref_id'  => $response['awb_no'],
+            'raw_response'     => $response['raw_response'],
+        ];
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
@@ -213,8 +297,8 @@ class ShipmentService
         try {
             if (! $kyc->document_image) return '';
 
-            $driver = config('filesystems.storage_driver', 'local');
-            $disk   = $driver === 'r2' ? 'r2' : 'public';
+            $driver  = config('filesystems.storage_driver', 'local');
+            $disk    = $driver === 'r2' ? 'r2' : 'public';
             $content = Storage::disk($disk)->get($kyc->document_image);
 
             return base64_encode($content);

@@ -37,6 +37,7 @@ class Shipment extends Model
         'transaction_id',
         'wallet_transaction_id',
         'overseas_response',
+        'shiprocket_response',
         'tracking_events',
         'tracking_updated_at',
     ];
@@ -49,8 +50,9 @@ class Shipment extends Model
             'receiver'            => 'array',
             'packages'            => 'array',
             'products'            => 'array',
-            'overseas_response'   => 'array',
-            'tracking_events'     => 'array',
+            'overseas_response'    => 'array',
+            'shiprocket_response'  => 'array',
+            'tracking_events'      => 'array',
             'tracking_updated_at' => 'datetime',
         ];
     }
