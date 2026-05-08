@@ -10,6 +10,8 @@ use App\Services\External\OverseasApiService;
 use App\Services\External\ShiprocketApiService;
 use App\Services\Shipment\AerotrekIdGenerator;
 use App\Services\Wallet\WalletService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ShipmentService
@@ -83,67 +85,50 @@ class ShipmentService
             throw new \Exception('Insufficient wallet balance. Please recharge your wallet.');
         }
 
-        // Build normalized sender/receiver for both APIs
         $sender = [
-            'name'          => $user->name,
-            'contact_person'=> $user->name,
-            'address_line1' => $data['sender_address_line1'],
-            'address_line2' => $data['sender_address_line2'] ?? '',
-            'city'          => $data['sender_city'] ?? 'Delhi',
-            'state'         => $data['sender_state'] ?? 'DL',
-            'pincode'       => $data['sender_pincode'],
-            'phone'         => $user->phone,
-            'email'         => $user->email,
-            'kyc_type'      => $this->mapKycType($kyc->document_type),
-            'kyc_no'        => $kyc->document_number,
+            'name'           => $user->name,
+            'contact_person' => $user->name,
+            'address_line1'  => $data['sender_address_line1'],
+            'address_line2'  => $data['sender_address_line2'] ?? '',
+            'city'           => $data['sender_city'] ?? 'Delhi',
+            'state'          => $data['sender_state'] ?? 'DL',
+            'pincode'        => $data['sender_pincode'],
+            'phone'          => $user->phone,
+            'email'          => $user->email,
+            'kyc_type'       => $this->mapKycType($kyc->document_type),
+            'kyc_no'         => $kyc->document_number,
         ];
 
         $receiver = [
-            'name'          => $data['receiver_name'],
-            'contact_person'=> $data['receiver_contact_person'] ?? $data['receiver_name'],
-            'address_line1' => $data['receiver_address_line1'],
-            'address_line2' => $data['receiver_address_line2'] ?? '',
-            'city'          => $data['receiver_city'],
-            'state'         => $data['receiver_state'],
-            'zipcode'       => $data['receiver_zipcode'],
-            'country_code'  => $data['receiver_country_code'],
-            'phone'         => $data['receiver_phone'],
-            'email'         => $data['receiver_email'] ?? '',
-            'vat_id'        => $data['receiver_vat_id'] ?? '',
+            'name'           => $data['receiver_name'],
+            'contact_person' => $data['receiver_contact_person'] ?? $data['receiver_name'],
+            'address_line1'  => $data['receiver_address_line1'],
+            'address_line2'  => $data['receiver_address_line2'] ?? '',
+            'city'           => $data['receiver_city'],
+            'state'          => $data['receiver_state'],
+            'zipcode'        => $data['receiver_zipcode'],
+            'country_code'   => $data['receiver_country_code'],
+            'phone'          => $data['receiver_phone'],
+            'email'          => $data['receiver_email'] ?? '',
+            'vat_id'         => $data['receiver_vat_id'] ?? '',
         ];
 
-        // Call the right platform
-        if ($platform === 'shiprocket') {
-            $response = $this->bookViaShinprocket($aerotrekId, $data, $sender, $receiver);
-        } else {
-            $response = $this->bookViaOverseas($data, $sender, $receiver, $kyc);
-        }
-
-        // Deduct wallet
-        $walletTxn = $this->wallet->deduct(
-            user:        $user,
-            amount:      $data['price'],
-            description: "{$data['carrier']} shipment #{$response['awb_no']}",
-            referenceId: $response['awb_no']
-        );
-
-        $shipmentFields = [
+        // Pre-save shipment before touching any external API.
+        // If the carrier call fails, we update this record to 'failed'.
+        // If the payment step fails after a successful carrier call, this record
+        // stays 'pending' so an admin can investigate rather than losing it entirely.
+        $shipment = Shipment::create([
             'aerotrek_id'       => $aerotrekId,
+            'booking_type'      => 'auto',
             'platform'          => $platform,
-            'platform_ref_id'   => $response['platform_ref_id'],
             'user_id'           => $user->id,
-            'awb_no'            => $response['awb_no'],
-            'tracking_no'       => $response['tracking_no'],
             'carrier'           => $data['carrier'],
             'service_code'      => $data['service_code'],
             'service_name'      => $data['service_name'],
             'network'           => $data['network'],
-            'status'            => 'booked',
+            'status'            => 'pending',
             'goods_type'        => $data['goods_type'],
-            'label_url'         => $response['label_url'],
-            'invoice_url'       => $response['invoice_url'],
             'price'             => $data['price'],
-            'chargeable_weight' => $response['chargeable_weight'] ?? null,
             'sender'            => $sender,
             'receiver'          => $receiver,
             'packages'          => $data['packages'],
@@ -153,17 +138,62 @@ class ShipmentService
             'duty_tax'          => $data['duty_tax'] ?? 'DDU',
             'reason_for_export' => $data['reason_for_export'] ?? 'GIFT',
             'transaction_id'    => $data['transaction_id'] ?? null,
-            'wallet_transaction_id' => (string) $walletTxn->id,
-        ];
+        ]);
 
-        // Store raw API response in the correct column
-        if ($platform === 'shiprocket') {
-            $shipmentFields['shiprocket_response'] = $response['raw_response'];
-        } else {
-            $shipmentFields['overseas_response'] = $response['raw_response'];
+        // Call carrier API — on failure mark shipment failed and bail out.
+        // No wallet is touched at this point.
+        try {
+            $response = $platform === 'shiprocket'
+                ? $this->bookViaShinprocket($aerotrekId, $data, $sender, $receiver)
+                : $this->bookViaOverseas($data, $sender, $receiver, $kyc);
+        } catch (\Exception $e) {
+            $shipment->update(['status' => 'failed']);
+            throw $e;
         }
 
-        return Shipment::create($shipmentFields);
+        // Wallet deduction + shipment confirmation must succeed or fail together.
+        // If this transaction fails after a successful carrier call the shipment
+        // remains 'pending' — logged as critical for admin follow-up.
+        try {
+            DB::transaction(function () use ($shipment, $user, $data, $response, $platform) {
+                $walletTxn = $this->wallet->deduct(
+                    user:        $user,
+                    amount:      $data['price'],
+                    description: "{$data['carrier']} shipment #{$response['awb_no']}",
+                    referenceId: $response['awb_no']
+                );
+
+                $updateFields = [
+                    'status'                => 'booked',
+                    'awb_no'                => $response['awb_no'],
+                    'tracking_no'           => $response['tracking_no'],
+                    'label_url'             => $response['label_url'],
+                    'invoice_url'           => $response['invoice_url'],
+                    'chargeable_weight'     => $response['chargeable_weight'] ?? null,
+                    'platform_ref_id'       => $response['platform_ref_id'],
+                    'wallet_transaction_id' => (string) $walletTxn->id,
+                ];
+
+                if ($platform === 'shiprocket') {
+                    $updateFields['shiprocket_response'] = $response['raw_response'];
+                } else {
+                    $updateFields['overseas_response'] = $response['raw_response'];
+                }
+
+                $shipment->update($updateFields);
+            });
+        } catch (\Exception $e) {
+            Log::critical('Auto booking: carrier succeeded but payment/DB failed', [
+                'shipment_id' => $shipment->id,
+                'aerotrek_id' => $aerotrekId,
+                'awb_no'      => $response['awb_no'],
+                'user_id'     => $user->id,
+                'error'       => $e->getMessage(),
+            ]);
+            throw new \Exception('Shipment was created with the carrier but payment processing failed. Our support team has been notified.');
+        }
+
+        return $shipment->fresh();
     }
 
     // ── Platform routing ──────────────────────────────────────────────
