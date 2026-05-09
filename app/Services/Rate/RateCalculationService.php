@@ -2,16 +2,160 @@
 
 namespace App\Services\Rate;
 
-use App\Models\AustraliaPostcode;
-use App\Models\RatePricing;
-use App\Models\RateZone;
+use App\Models\ShiprocketRate;
+use Illuminate\Support\Facades\DB;
 
 class RateCalculationService
 {
-    /**
-     * Main entry point — returns all available carrier rates for a shipment.
-     */
+    // ── Static rate cache (loaded once per process) ───────────────────
+    private static array $upsData        = [];
+    private static array $fedexData      = [];
+    private static array $upsDutyFree    = [];
+    private static bool  $loaded         = false;
+
+    // ── UPS: country_code → rate-column key ───────────────────────────
+    private const UPS_COUNTRY_COLUMN = [
+        // Direct named columns
+        'US' => 'usa',   'PR' => 'usa',
+        'CA' => 'canada',
+        'MX' => 'mexico',
+        'DE' => 'germany',
+        'BE' => 'belgium', 'NL' => 'belgium', 'LU' => 'belgium',
+        'GB' => 'uk',
+        // Western Europe cluster → Denmark column
+        'DK' => 'denmark', 'FR' => 'denmark', 'IT' => 'denmark',
+        'ES' => 'denmark', 'CH' => 'denmark',
+        // Austria cluster
+        'AT' => 'austria', 'IE' => 'austria', 'PT' => 'austria', 'SE' => 'austria',
+        // Norway cluster
+        'NO' => 'norway', 'FI' => 'norway', 'GR' => 'norway',
+        // Japan cluster
+        'JP' => 'japan', 'KR' => 'japan',
+        // Hong Kong cluster
+        'HK' => 'hongkong', 'SG' => 'hongkong', 'MY' => 'hongkong', 'TH' => 'hongkong',
+        // Australia / NZ
+        'AU' => 'australia',
+        'NZ' => 'nz',
+        // Israel / Egypt
+        'IL' => 'israel',
+        'EG' => 'egypt',
+        'GF' => 'frenchguinea',   // French Guiana
+        'AE' => 'uae',
+        // China cluster
+        'CN' => 'china', 'ID' => 'china', 'PH' => 'china',
+        // Zone 1 — South Asia
+        'BD' => 'zone1', 'NP' => 'zone1', 'LK' => 'zone1',
+        // Zone 2 — East Asia
+        'MO' => 'zone2', 'TW' => 'zone2', 'VN' => 'zone2',
+        // Zone 3 — Middle East
+        'BH' => 'zone3', 'JO' => 'zone3', 'KW' => 'zone3', 'LB' => 'zone3',
+        'OM' => 'zone3', 'PK' => 'zone3', 'QA' => 'zone3', 'SA' => 'zone3',
+        // Zone 4 — Micro-states
+        'AD' => 'zone4', 'SM' => 'zone4',
+        // Zone 6
+        'GG' => 'zone6', 'JE' => 'zone6', 'MP' => 'zone6',
+        // Zone 8 — Central Europe
+        'CZ' => 'zone8', 'HU' => 'zone8', 'PL' => 'zone8',
+        // Zone 9 — Latin America
+        'AI' => 'zone9', 'AG' => 'zone9', 'BB' => 'zone9', 'BZ' => 'zone9',
+        'BO' => 'zone9', 'BR' => 'zone9', 'KY' => 'zone9', 'CL' => 'zone9',
+        'CO' => 'zone9', 'CU' => 'zone9', 'DM' => 'zone9', 'DO' => 'zone9',
+        'EC' => 'zone9', 'SV' => 'zone9', 'HN' => 'zone9', 'MS' => 'zone9',
+        'NI' => 'zone9', 'PE' => 'zone9', 'KN' => 'zone9', 'VC' => 'zone9',
+        'MF' => 'zone9', 'TC' => 'zone9', 'VE' => 'zone9',
+        // Zone 10 — Eastern Europe / Balkans
+        'AL' => 'zone10', 'AM' => 'zone10', 'BY' => 'zone10', 'BA' => 'zone10',
+        'HR' => 'zone10', 'EE' => 'zone10', 'GE' => 'zone10', 'XK' => 'zone10',
+        'LV' => 'zone10', 'LT' => 'zone10', 'MK' => 'zone10', 'MD' => 'zone10',
+        'ME' => 'zone10', 'RS' => 'zone10', 'SI' => 'zone10', 'UA' => 'zone10',
+        // Zone 11
+        'MV' => 'zone11', 'MU' => 'zone11', 'NC' => 'zone11',
+        // Zone 12 — Caribbean / Latin
+        'AR' => 'zone12', 'AW' => 'zone12', 'BS' => 'zone12', 'BM' => 'zone12',
+        'VG' => 'zone12', 'CR' => 'zone12', 'CW' => 'zone12', 'GD' => 'zone12',
+        'GP' => 'zone12', 'GT' => 'zone12', 'GY' => 'zone12', 'HT' => 'zone12',
+        'JM' => 'zone12', 'MQ' => 'zone12', 'PA' => 'zone12', 'PY' => 'zone12',
+        'BL' => 'zone12', 'LC' => 'zone12', 'SR' => 'zone12', 'TT' => 'zone12',
+        'VI' => 'zone12', 'UY' => 'zone12',
+        // Zone 13 — SE Europe
+        'BG' => 'zone13', 'CY' => 'zone13', 'GI' => 'zone13', 'IS' => 'zone13',
+        'MT' => 'zone13', 'RO' => 'zone13', 'SK' => 'zone13', 'TR' => 'zone13',
+        // Zone 14 — Central Asia / Remote
+        'AO' => 'zone14', 'AZ' => 'zone14', 'CV' => 'zone14', 'KM' => 'zone14',
+        'GQ' => 'zone14', 'ER' => 'zone14', 'FO' => 'zone14', 'GL' => 'zone14',
+        'KZ' => 'zone14', 'KG' => 'zone14', 'YT' => 'zone14', 'TJ' => 'zone14',
+        'UZ' => 'zone14',
+        // Zone 15 — West / Central Africa
+        'AS' => 'zone15', 'CM' => 'zone15', 'CG' => 'zone15', 'DJ' => 'zone15',
+        'GM' => 'zone15', 'CI' => 'zone15', 'NE' => 'zone15', 'RE' => 'zone15',
+        'SC' => 'zone15', 'SL' => 'zone15', 'WS' => 'zone15',
+        // Zone 7 — Africa / Rest of World (also default)
+        'DZ' => 'zone7', 'BJ' => 'zone7', 'BT' => 'zone7', 'BW' => 'zone7',
+        'BN' => 'zone7', 'BF' => 'zone7', 'BI' => 'zone7', 'KH' => 'zone7',
+        'CF' => 'zone7', 'TD' => 'zone7', 'CK' => 'zone7', 'ET' => 'zone7',
+        'PF' => 'zone7', 'GA' => 'zone7', 'GH' => 'zone7', 'GU' => 'zone7',
+        'GN' => 'zone7', 'GW' => 'zone7', 'KE' => 'zone7', 'KI' => 'zone7',
+        'LA' => 'zone7', 'LS' => 'zone7', 'LR' => 'zone7', 'MG' => 'zone7',
+        'MW' => 'zone7', 'ML' => 'zone7', 'MH' => 'zone7', 'MR' => 'zone7',
+        'FM' => 'zone7', 'MN' => 'zone7', 'MA' => 'zone7', 'MZ' => 'zone7',
+        'MM' => 'zone7', 'NA' => 'zone7', 'NG' => 'zone7', 'PW' => 'zone7',
+        'PG' => 'zone7', 'RW' => 'zone7', 'SN' => 'zone7', 'SB' => 'zone7',
+        'ZA' => 'zone7', 'SZ' => 'zone7', 'TZ' => 'zone7', 'TL' => 'zone7',
+        'TG' => 'zone7', 'TO' => 'zone7', 'TN' => 'zone7', 'TV' => 'zone7',
+        'UG' => 'zone7', 'VU' => 'zone7', 'ZM' => 'zone7', 'ZW' => 'zone7',
+        'WF' => 'zone7', 'LY' => 'zone7', 'SD' => 'zone7', 'SO' => 'zone7',
+        'RU' => 'zone10',
+    ];
+
+    // ── FedEx: country_code → zone char ───────────────────────────────
+    private const FEDEX_COUNTRY_ZONE = [
+        'AE' => 'a',
+        'BD' => 'b', 'BT' => 'b', 'MV' => 'b', 'NP' => 'b',
+        'PK' => 'b', 'SG' => 'b', 'LK' => 'b',
+        'AF' => 'c', 'EG' => 'c', 'IQ' => 'c', 'IR' => 'c', 'JO' => 'c',
+        'LB' => 'c', 'MM' => 'c', 'PS' => 'c', 'SA' => 'c', 'SY' => 'c',
+        'TM' => 'c', 'YE' => 'c',
+        'CN' => 'd', 'HK' => 'd', 'TH' => 'd',
+        'AS' => 'e', 'AU' => 'e', 'BN' => 'e', 'KH' => 'e', 'CK' => 'e',
+        'TL' => 'e', 'FJ' => 'e', 'PF' => 'e', 'GU' => 'e', 'ID' => 'e',
+        'LA' => 'e', 'MO' => 'e', 'MY' => 'e', 'MH' => 'e', 'FM' => 'e',
+        'MN' => 'e', 'NC' => 'e', 'NZ' => 'e', 'PW' => 'e', 'PG' => 'e',
+        'PH' => 'e', 'MP' => 'e', 'WS' => 'e', 'SB' => 'e', 'KR' => 'e',
+        'TW' => 'e', 'TO' => 'e', 'TV' => 'e', 'VU' => 'e', 'VN' => 'e',
+        'BE' => 'f', 'DK' => 'f', 'FO' => 'f', 'FR' => 'f', 'DE' => 'f',
+        'GL' => 'f', 'IT' => 'f', 'LI' => 'f', 'LU' => 'f', 'NL' => 'f',
+        'ES' => 'f', 'CH' => 'f', 'GB' => 'f',
+        'MX' => 'g', 'US' => 'g', 'PR' => 'g',
+        'JP' => 'h',
+        'AL' => 'i', 'AD' => 'i', 'AM' => 'i', 'AT' => 'i', 'AZ' => 'i',
+        'BY' => 'i', 'BA' => 'i', 'BG' => 'i', 'HR' => 'i', 'CY' => 'i',
+        'CZ' => 'i', 'EE' => 'i', 'FI' => 'i', 'GE' => 'i', 'GI' => 'i',
+        'GR' => 'i', 'HU' => 'i', 'IS' => 'i', 'IE' => 'i', 'KZ' => 'i',
+        'KI' => 'i', 'KG' => 'i', 'LV' => 'i', 'LT' => 'i', 'MK' => 'i',
+        'MT' => 'i', 'MD' => 'i', 'MC' => 'i', 'ME' => 'i', 'NO' => 'i',
+        'PL' => 'i', 'PT' => 'i', 'RO' => 'i', 'RU' => 'i', 'RS' => 'i',
+        'SK' => 'i', 'SI' => 'i', 'SE' => 'i', 'TR' => 'i', 'UA' => 'i',
+        'UZ' => 'i',
+        'ZA' => 'k',
+        'CA' => 'l',
+        'BH' => 'm', 'KW' => 'm', 'OM' => 'm', 'QA' => 'm',
+        'CF' => 'n', 'TD' => 'n', 'DJ' => 'n', 'ER' => 'n', 'ET' => 'n',
+        'KE' => 'n', 'MU' => 'n', 'SD' => 'n', 'TZ' => 'n', 'UG' => 'n',
+        'DZ' => 'o', 'AO' => 'o', 'CI' => 'o', 'GH' => 'o', 'LY' => 'o',
+        'MA' => 'o', 'NG' => 'o', 'SC' => 'o',
+        'BW' => 'p', 'LS' => 'p', 'NA' => 'p', 'RW' => 'p', 'SZ' => 'p',
+        'ZM' => 'p', 'ZW' => 'p',
+        'BJ' => 'q', 'BF' => 'q', 'BI' => 'q', 'CM' => 'q', 'CV' => 'q',
+        'CG' => 'q', 'GQ' => 'q', 'GA' => 'q', 'GM' => 'q', 'GW' => 'q',
+        'LR' => 'q', 'MG' => 'q', 'MW' => 'q', 'ML' => 'q', 'MR' => 'q',
+        'MZ' => 'q', 'NE' => 'q', 'RE' => 'q', 'SN' => 'q', 'SL' => 'q',
+        'TG' => 'q', 'TN' => 'q',
+    ];
+
+    // ── Main entry point ──────────────────────────────────────────────
+
     public function calculate(
+        string  $countryCode,
         string  $country,
         float   $actualWeight,
         ?float  $length       = null,
@@ -19,49 +163,70 @@ class RateCalculationService
         ?float  $height       = null,
         string  $shipmentType = 'Non-Document',
         ?string $postcode     = null,
-        int     $packageCount = 1
+        int     $packageCount = 1,
+        string  $serviceType  = 'standard',   // 'standard' | 'ecommerce'
     ): array {
-        $chargeableWeight = $this->getChargeableWeight($actualWeight, $length, $breadth, $height);
-        $slabWeight       = $this->roundToSlab($chargeableWeight);
+        $this->loadRates();
+
+        $volumetricWeight = $this->getVolumetricWeight($length, $breadth, $height);
+        $chargeableWeight = $volumetricWeight
+            ? max($actualWeight, $volumetricWeight)
+            : $actualWeight;
 
         $rates = [];
 
-        $carriers = [
-            'DHL', 'FedEx', 'Aramex', 'UPS',
-            'SELF-UK', 'SELF-EUROPE', 'SELF-DUBAI',
-            'SELF-AUSTRALIA', 'SELF-NZ', 'SELF-CANADA',
-        ];
+        if ($serviceType === 'standard') {
+            // UPS Express
+            $ups = $this->getUPSRate($countryCode, $chargeableWeight, $shipmentType);
+            if ($ups) $rates[] = $ups;
 
-        foreach ($carriers as $carrier) {
-            $rate = $this->getCarrierRate(
-                carrier:          $carrier,
-                country:          $country,
-                weight:           $slabWeight,
-                shipmentType:     $shipmentType,
-                postcode:         $postcode,
-                packageCount:     $packageCount,
-                actualWeight:     $actualWeight,
-                chargeableWeight: $chargeableWeight
-            );
+            // UPS Duty Free (USA / PR only, Non-Document only)
+            if ($shipmentType === 'Non-Document' && in_array($countryCode, ['US', 'PR'])) {
+                $upsd = $this->getUPSDutyFreeRate($chargeableWeight);
+                if ($upsd) $rates[] = $upsd;
+            }
 
-            if ($rate) {
-                $rates[] = $rate;
+            // FedEx Express
+            foreach ($this->getFedExRates($countryCode, $chargeableWeight, $shipmentType) as $r) {
+                $rates[] = $r;
+            }
+        } else {
+            // eCommerce — Shiprocket services (SRX / Aramex / India Post)
+            foreach ($this->getShiprocketRates($countryCode, $chargeableWeight) as $r) {
+                $rates[] = $r;
             }
         }
 
         usort($rates, fn($a, $b) => $a['rate'] <=> $b['rate']);
 
         return [
-            'destination'       => $country,
-            'actual_weight'     => $actualWeight,
-            'volumetric_weight' => $this->getVolumetricWeight($length, $breadth, $height),
-            'chargeable_weight' => $chargeableWeight,
-            'shipment_type'     => $shipmentType,
-            'rates'             => $rates,
+            'destination'        => $country,
+            'country_code'       => $countryCode,
+            'actual_weight'      => $actualWeight,
+            'volumetric_weight'  => $volumetricWeight,
+            'chargeable_weight'  => $chargeableWeight,
+            'shipment_type'      => $shipmentType,
+            'rates'              => $rates,
         ];
     }
 
-    // ── Weight calculation ─────────────────────────────────────────────
+    // ── Lazy-load JSON rate files ─────────────────────────────────────
+
+    private function loadRates(): void
+    {
+        if (self::$loaded) return;
+
+        $upsPath   = storage_path('app/rates/ups_rates.json');
+        $fedexPath = storage_path('app/rates/fedex_rates.json');
+        $upsdPath  = storage_path('app/rates/ups_duty_free_rates.json');
+
+        self::$upsData     = file_exists($upsPath)   ? json_decode(file_get_contents($upsPath),   true) : [];
+        self::$fedexData   = file_exists($fedexPath) ? json_decode(file_get_contents($fedexPath), true) : [];
+        self::$upsDutyFree = file_exists($upsdPath)  ? json_decode(file_get_contents($upsdPath),  true) : [];
+        self::$loaded      = true;
+    }
+
+    // ── Weight helpers ────────────────────────────────────────────────
 
     private function getVolumetricWeight(?float $l, ?float $b, ?float $h): ?float
     {
@@ -71,429 +236,222 @@ class RateCalculationService
         return null;
     }
 
-    private function getChargeableWeight(float $actual, ?float $l, ?float $b, ?float $h): float
+    private function upsWeightKey(float $chargeable): string
     {
-        $volumetric = $this->getVolumetricWeight($l, $b, $h);
-        if ($volumetric) {
-            return max($actual, $volumetric);
-        }
-        return $actual;
+        // Round up to nearest 0.5 kg
+        return (string)(ceil($chargeable * 2) / 2);
     }
 
-    private function roundToSlab(float $weight): float
+    private function fedexWeightKey(float $chargeable): string
     {
-        return ceil($weight * 2) / 2;
+        // Round up to nearest 0.5 kg, max 70.5
+        $w = min(ceil($chargeable * 2) / 2, 70.5);
+        return (string)$w;
     }
 
-    // ── Per-carrier rate lookup ────────────────────────────────────────
+    private function srWeightKey(float $chargeable): string
+    {
+        // Round up to nearest 0.05 kg, minimum 0.05
+        $w = max(0.05, ceil($chargeable * 20) / 20);
+        // Format to avoid floating-point string artifacts
+        return number_format($w, 2, '.', '');
+    }
 
-    private function getCarrierRate(
-        string  $carrier,
-        string  $country,
-        float   $weight,
-        string  $shipmentType,
-        ?string $postcode,
-        int     $packageCount,
-        float   $actualWeight,
-        float   $chargeableWeight
-    ): ?array {
-        $rate = match ($carrier) {
-            'DHL'            => $this->getDHLRate($country, $weight, $shipmentType),
-            'FedEx'          => $this->getFedExRate($country, $weight, $shipmentType),
-            'Aramex'         => $this->getAramexRate($country, $weight, $shipmentType),
-            'UPS'            => $this->getUPSRate($country, $weight, $shipmentType),
-            'SELF-UK'        => $this->getSelfUKRate($country, $weight),
-            'SELF-EUROPE'    => $this->getSelfEuropeRate($country, $weight),
-            'SELF-DUBAI'     => $this->getSelfDubaiRate($country, $weight, $packageCount),
-            'SELF-AUSTRALIA' => $this->getSelfAustraliaRate($country, $weight, $postcode, $packageCount),
-            'SELF-NZ'        => $this->getSelfNZRate($country, $weight, $postcode, $packageCount),
-            'SELF-CANADA'    => $this->getSelfCanadaRate($country, $weight, $postcode),
-            default          => null,
-        };
+    // ── UPS Express ───────────────────────────────────────────────────
 
-        if ($rate !== null) {
-            $rate['chargeable_weight'] = $chargeableWeight;
+    private function getUPSRate(string $countryCode, float $chargeable, string $shipmentType): ?array
+    {
+        $col = self::UPS_COUNTRY_COLUMN[$countryCode] ?? 'zone7';
+
+        $slabW = ceil($chargeable * 2) / 2;
+
+        if ($slabW <= 20) {
+            $key  = (string)$slabW;
+            $rate = self::$upsData['rates'][$key][$col] ?? null;
+        } else {
+            $tier    = $this->upsPerKgTier($slabW);
+            $perKgR  = self::$upsData['perKg'][$tier][$col] ?? null;
+            $rate    = $perKgR ? (int)round($perKgR * $chargeable) : null;
         }
 
-        return $rate;
-    }
-
-    // ── DHL ───────────────────────────────────────────────────────────
-    private function getDHLRate(string $country, float $weight, string $shipmentType): ?array
-    {
-        $zone = RateZone::where('carrier', 'DHL')
-            ->whereJsonContains('countries', $country)
-            ->first()?->zone;
-
-        if (! $zone) return null;
-
-        $type  = $shipmentType === 'Document' ? 'Document' : 'Non-Document';
-        $price = $this->lookupPrice('DHL', $zone, $type, $weight);
-
-        if (! $price) return null;
+        if (! $rate) return null;
 
         return [
-            'carrier'        => 'DHL',
-            'network'        => 'DHL',
-            'service_code'   => 'DHL_EXPRESS',   // Overseas API service code
-            'requires_otp'   => true,             // DHL requires OTP verification
-            'zone'           => $zone,
-            'shipment_type'  => $type,
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'DHL Express',
-            'estimated_delivery' => $this->getDHLEstimatedDays($zone),
-        ];
-    }
-
-    // ── FedEx ─────────────────────────────────────────────────────────
-    private function getFedExRate(string $country, float $weight, string $shipmentType): ?array
-    {
-        $zone = RateZone::where('carrier', 'FedEx')
-            ->whereJsonContains('countries', $country)
-            ->first()?->zone;
-
-        if (! $zone) return null;
-
-        $type = match ($shipmentType) {
-            'Document' => 'Envelope',
-            default    => 'Pak',
-        };
-
-        $price = $this->lookupPrice('FedEx', $zone, $type, $weight);
-
-        if (! $price && $type === 'Pak') {
-            $price = $this->lookupPrice('FedEx', $zone, 'Box', $weight);
-            $type  = 'Box';
-        }
-
-        if (! $price) return null;
-
-        // Map FedEx service code based on shipment type
-        $serviceCode = match ($type) {
-            'Envelope' => 'FEDEX_ENVELOP',
-            'Pak'      => 'FEDEX_PAK',
-            default    => 'FEDEX_IP',
-        };
-
-        return [
-            'carrier'        => 'FedEx',
-            'network'        => 'FEDEX',
-            'service_code'   => $serviceCode,    // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => $type,
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'FedEx International Priority',
-            'estimated_delivery' => $this->getFedExEstimatedDays($zone),
-        ];
-    }
-
-    // ── Aramex ────────────────────────────────────────────────────────
-    private function getAramexRate(string $country, float $weight, string $shipmentType): ?array
-    {
-        $zones = RateZone::where('carrier', 'Aramex')
-            ->whereJsonContains('countries', $country)
-            ->get();
-
-        if ($zones->isEmpty()) return null;
-
-        $zone = $zones->first(fn($z) => str_contains($z->zone, 'PPX'))?->zone
-            ?? $zones->first()?->zone;
-
-        $type  = $shipmentType === 'Document' ? 'Document' : 'Non-Document';
-        $price = $this->lookupPrice('Aramex', $zone, $type, $weight);
-
-        if (! $price) return null;
-
-        // Map Aramex zone to service code
-        $serviceCode = match (true) {
-            str_contains($zone, 'PPX') => 'ARAMEX_PPX',
-            str_contains($zone, 'DPX') => 'ARAMEX_DPX',
-            str_contains($zone, 'GPX') => 'ARAMEX_GPX',
-            str_contains($zone, 'EPX') => 'ARAMEX_EPX',
-            default                    => 'ARAMEX_PPX',
-        };
-
-        return [
-            'carrier'        => 'Aramex',
-            'network'        => 'ARAMEX',
-            'service_code'   => $serviceCode,    // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => $type,
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'Aramex Priority Express',
+            'carrier'            => 'UPS',
+            'network'            => 'UPS',
+            'service_code'       => 'UPS_SAVER',
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => $shipmentType,
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'UPS Worldwide Saver',
             'estimated_delivery' => '3-5 business days',
         ];
     }
 
-    // ── UPS ───────────────────────────────────────────────────────────
-    private function getUPSRate(string $country, float $weight, string $shipmentType): ?array
+    private function upsPerKgTier(float $weight): string
     {
-        $zone = RateZone::where('carrier', 'UPS')
-            ->whereJsonContains('countries', $country)
-            ->first()?->zone;
+        return match(true) {
+            $weight >= 1000 => '1000plus',
+            $weight >= 500  => '500plus',
+            $weight >= 300  => '300plus',
+            $weight >= 100  => '100plus',
+            $weight >= 70   => '70plus',
+            $weight >= 50   => '50plus',
+            $weight >= 30   => '30plus',
+            default         => '20plus',
+        };
+    }
 
-        if (! $zone) return null;
+    // ── UPS Duty Free ─────────────────────────────────────────────────
 
-        $type  = $shipmentType === 'Document' ? 'Document' : 'Non-Document';
-        $price = $this->lookupPrice('UPS', $zone, $type, $weight);
+    private function getUPSDutyFreeRate(float $chargeable): ?array
+    {
+        if (empty(self::$upsDutyFree)) return null;
 
-        if (! $price) return null;
+        $slabW = min(ceil($chargeable * 2) / 2, 20); // max 20 kg
+        $key   = (string)$slabW;
+        $rate  = self::$upsDutyFree[$key] ?? null;
+
+        if (! $rate) return null;
 
         return [
-            'carrier'        => 'UPS',
-            'network'        => 'UPS',
-            'service_code'   => 'UPS_SAVER',     // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => $type,
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'UPS Worldwide Saver',
+            'carrier'            => 'UPS',
+            'network'            => 'UPS',
+            'service_code'       => 'UPS_DUTY_FREE',
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => 'Non-Document',
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'UPS Duty Free (C2C USA)',
             'estimated_delivery' => '3-5 business days',
         ];
     }
 
-    // ── SELF UK ───────────────────────────────────────────────────────
-    private function getSelfUKRate(string $country, float $weight): ?array
+    // ── FedEx Express ─────────────────────────────────────────────────
+
+    private function getFedExRates(string $countryCode, float $chargeable, string $shipmentType): array
     {
-        if (! in_array($country, ['UK', 'United Kingdom'])) return null;
+        $zone = self::FEDEX_COUNTRY_ZONE[$countryCode] ?? 'j';
+        $rates = [];
 
-        $price = $this->lookupPrice('SELF-UK', 'UK', 'Non-Document', $weight);
-
-        if (! $price && $weight > 6) {
-            $perKgRate = RatePricing::where('carrier', 'SELF-UK')
-                ->where('is_per_kg', true)
-                ->first()?->price;
-            $price = $perKgRate ? round($perKgRate * $weight, 2) : null;
-        }
-
-        if (! $price) return null;
-
-        return [
-            'carrier'        => 'SELF-UK',
-            'network'        => 'SELF',
-            'service_code'   => 'UK_DPD',        // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => 'UK',
-            'shipment_type'  => 'Non-Document',
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'SELF UK (DPD)',
-            'estimated_delivery' => '4-6 business days',
-        ];
-    }
-
-    // ── SELF Europe ───────────────────────────────────────────────────
-    private function getSelfEuropeRate(string $country, float $weight): ?array
-    {
-        $zone = RateZone::where('carrier', 'SELF-EUROPE')
-            ->whereJsonContains('countries', $country)
-            ->first()?->zone;
-
-        if (! $zone) return null;
-
-        $perKgRate = RatePricing::where('carrier', 'SELF-EUROPE')
-            ->where('zone', $zone)
-            ->where('weight', '<=', $weight)
-            ->orderBy('weight', 'desc')
-            ->first()?->price;
-
-        if (! $perKgRate) return null;
-
-        $price = round($perKgRate * $weight, 2);
-
-        return [
-            'carrier'        => 'SELF-EUROPE',
-            'network'        => 'SELF',
-            'service_code'   => 'EU_FR_DPD',     // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => 'Non-Document',
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'SELF Europe (DPD via Germany)',
-            'estimated_delivery' => '5-7 business days',
-        ];
-    }
-
-    // ── SELF Dubai ────────────────────────────────────────────────────
-    private function getSelfDubaiRate(string $country, float $weight, int $packageCount): ?array
-    {
-        $zone = RateZone::where('carrier', 'SELF-DUBAI')
-            ->whereJsonContains('countries', $country)
-            ->first()?->zone;
-
-        if (! $zone) return null;
-
-        $tier  = $packageCount >= 10 ? 'above_10' : 'below_10';
-        $price = RatePricing::where('carrier', 'SELF-DUBAI')
-            ->where('zone', $zone)
-            ->where('weight', $weight)
-            ->where('tier', $tier)
-            ->first()?->price;
-
-        if (! $price) return null;
-
-        return [
-            'carrier'        => 'SELF-DUBAI',
-            'network'        => 'SELF',
-            'service_code'   => 'GULF_EXPRESS',  // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => 'Non-Document',
-            'weight'         => $weight,
-            'rate'          => $price,
-            'tier'           => $tier,
-            'currency'       => 'INR',
-            'service_name'   => 'SELF Dubai (Direct)',
-            'estimated_delivery' => '2-4 business days',
-        ];
-    }
-
-    // ── SELF Australia ────────────────────────────────────────────────
-    private function getSelfAustraliaRate(string $country, float $weight, ?string $postcode, int $packageCount): ?array
-    {
-        if ($country !== 'Australia') return null;
-
-        $zone  = $postcode ? AustraliaPostcode::findZone($postcode) : 'Metro';
-        $tier  = $packageCount >= 10 ? 'above_10' : 'below_10';
-        $price = RatePricing::where('carrier', 'SELF-AUSTRALIA')
-            ->where('zone', $zone)
-            ->where('weight', $weight)
-            ->where('tier', $tier)
-            ->first()?->price;
-
-        if (! $price) return null;
-
-        return [
-            'carrier'        => 'SELF-AUSTRALIA',
-            'network'        => 'SELF',
-            'service_code'   => 'AU_SAVER',      // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => 'Non-Document',
-            'weight'         => $weight,
-            'rate'          => $price,
-            'tier'           => $tier,
-            'currency'       => 'INR',
-            'service_name'   => 'SELF Australia (Toll Express)',
-            'estimated_delivery' => '5-8 business days',
-        ];
-    }
-
-    // ── SELF NZ ───────────────────────────────────────────────────────
-    private function getSelfNZRate(string $country, float $weight, ?string $postcode, int $packageCount): ?array
-    {
-        if ($country !== 'New Zealand') return null;
-
-        $zone  = 'Zone 1';
-        $tier  = $packageCount >= 10 ? 'above_10' : 'below_10';
-        $price = RatePricing::where('carrier', 'SELF-NZ')
-            ->where('zone', $zone)
-            ->where('weight', $weight)
-            ->where('tier', $tier)
-            ->first()?->price;
-
-        if (! $price) return null;
-
-        return [
-            'carrier'        => 'SELF-NZ',
-            'network'        => 'SELF',
-            'service_code'   => 'NZ_ECONOMY',    // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => 'Non-Document',
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'SELF New Zealand (NZ Post)',
-            'estimated_delivery' => '6-10 business days',
-        ];
-    }
-
-    // ── SELF Canada ───────────────────────────────────────────────────
-    private function getSelfCanadaRate(string $country, float $weight, ?string $postcode): ?array
-    {
-        if ($country !== 'Canada') return null;
-
-        $zone  = 'YVR-Zone-1';
-        $price = RatePricing::where('carrier', 'SELF-CANADA')
-            ->where('zone', $zone)
-            ->where('weight', $weight)
-            ->first()?->price;
-
-        if (! $price) return null;
-
-        return [
-            'carrier'        => 'SELF-CANADA',
-            'network'        => 'SELF',
-            'service_code'   => 'CANADA_YVR_SELF', // Overseas API service code
-            'requires_otp'   => false,
-            'zone'           => $zone,
-            'shipment_type'  => 'Non-Document',
-            'weight'         => $weight,
-            'rate'          => $price,
-            'currency'       => 'INR',
-            'service_name'   => 'SELF Canada (UPS Last Mile)',
-            'estimated_delivery' => '7-10 business days',
-        ];
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────
-
-    private function lookupPrice(string $carrier, string $zone, string $type, float $weight): ?float
-    {
-        $price = RatePricing::where('carrier', $carrier)
-            ->where('zone', $zone)
-            ->where('shipment_type', $type)
-            ->where('weight', $weight)
-            ->first()?->price;
-
-        if ($price) return $price;
-
-        if ($weight > 30) {
-            $perKg = RatePricing::where('carrier', $carrier)
-                ->where('zone', $zone)
-                ->where('shipment_type', 'Per-KG-30Plus')
-                ->first()?->price;
-
-            if ($perKg) {
-                return round($perKg * $weight, 2);
+        if ($shipmentType === 'Document' && $chargeable <= 2.5) {
+            // Pak rate for light documents
+            $key  = $this->fedexWeightKey($chargeable);
+            // For Pak, weights only go to 2.5; if rounded key > 2.5, skip
+            if ((float)$key <= 2.5) {
+                $rate = self::$fedexData['pak'][$key][$zone] ?? null;
+                if ($rate) {
+                    $rates[] = [
+                        'carrier'            => 'FedEx',
+                        'network'            => 'FEDEX',
+                        'service_code'       => 'FEDEX_PAK',
+                        'platform'           => 'overseas',
+                        'requires_otp'       => false,
+                        'shipment_type'      => 'Document',
+                        'chargeable_weight'  => $chargeable,
+                        'rate'               => $rate,
+                        'currency'           => 'INR',
+                        'service_name'       => 'FedEx International Priority (Pak)',
+                        'estimated_delivery' => $this->fedexETA($zone),
+                    ];
+                }
             }
         }
 
-        return null;
+        // Package rate (for all non-docs and docs > 2.5 kg)
+        $key  = $this->fedexWeightKey($chargeable);
+        $rate = self::$fedexData['package'][$key][$zone] ?? null;
+
+        if ($rate) {
+            $rates[] = [
+                'carrier'            => 'FedEx',
+                'network'            => 'FEDEX',
+                'service_code'       => 'FEDEX_IP',
+                'platform'           => 'overseas',
+                'requires_otp'       => false,
+                'shipment_type'      => $shipmentType,
+                'chargeable_weight'  => $chargeable,
+                'rate'               => $rate,
+                'currency'           => 'INR',
+                'service_name'       => 'FedEx International Priority',
+                'estimated_delivery' => $this->fedexETA($zone),
+            ];
+        }
+
+        return $rates;
     }
 
-    private function getDHLEstimatedDays(string $zone): string
+    private function fedexETA(string $zone): string
     {
-        return match ($zone) {
-            'Zone 1', 'Zone 2' => '2-3 business days',
-            'Zone 3', 'Zone 4' => '3-4 business days',
-            'Zone 7', 'Zone 8' => '3-5 business days',
-            'Zone 12'          => '4-6 business days',
-            default            => '3-7 business days',
+        return match($zone) {
+            'a', 'b', 'c', 'm' => '2-3 business days',
+            'd', 'h'           => '3-4 business days',
+            'f', 'g', 'i', 'l' => '3-5 business days',
+            default            => '4-7 business days',
         };
     }
 
-    private function getFedExEstimatedDays(string $zone): string
+    // ── Shiprocket (SRX / Aramex / India Post) ────────────────────────
+
+    private function getShiprocketRates(string $countryCode, float $chargeable): array
     {
-        return match ($zone) {
-            'Zone A', 'Zone B' => '2-3 business days',
-            'Zone D'           => '3-4 business days',
-            'Zone F', 'Zone G' => '3-5 business days',
-            default            => '3-7 business days',
+        // Find the minimum available weight per service >= chargeable weight
+        $srWeight = max(0.05, ceil($chargeable * 20) / 20);
+
+        $rows = DB::select(
+            'SELECT sr.service, sr.rate
+             FROM shiprocket_rates sr
+             INNER JOIN (
+                 SELECT service, MIN(weight) AS min_w
+                 FROM shiprocket_rates
+                 WHERE country_code = ? AND weight >= ?
+                 GROUP BY service
+             ) best ON sr.service = best.service
+                    AND sr.weight  = best.min_w
+                    AND sr.country_code = ?
+             ORDER BY sr.rate ASC',
+            [$countryCode, $srWeight, $countryCode]
+        );
+
+        return array_map(function ($row) use ($chargeable) {
+            return [
+                'carrier'            => $this->srCarrierName($row->service),
+                'network'            => 'SHIPROCKET',
+                'service_code'       => $row->service,
+                'platform'           => 'shiprocket',
+                'requires_otp'       => false,
+                'shipment_type'      => 'Non-Document',
+                'chargeable_weight'  => $chargeable,
+                'rate'               => (int)$row->rate,
+                'currency'           => 'INR',
+                'service_name'       => $row->service,
+                'estimated_delivery' => $this->srETA($row->service),
+            ];
+        }, $rows);
+    }
+
+    private function srCarrierName(string $service): string
+    {
+        return match(true) {
+            str_starts_with($service, 'Aramex')     => 'Aramex',
+            str_starts_with($service, 'India Post') => 'India Post',
+            default                                  => 'Shiprocket',
+        };
+    }
+
+    private function srETA(string $service): string
+    {
+        return match(true) {
+            str_contains($service, 'Priority')   => '5-7 business days',
+            str_contains($service, 'Premium')    => '7-10 business days',
+            str_contains($service, 'Economy')    => '10-15 business days',
+            str_contains($service, 'India Post') => '15-25 business days',
+            default                               => '7-14 business days',
         };
     }
 }
