@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\AdminKycController;
 use App\Http\Controllers\Admin\AdminLimitController;
 use App\Http\Controllers\Admin\AdminPlatformController;
 use App\Http\Controllers\Admin\AdminShipmentController;
+use App\Http\Controllers\Admin\AdminRateController;
 use App\Http\Controllers\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -89,6 +90,9 @@ Route::prefix('v1')->group(function () {
         // Rate Calculator
         Route::post('rates/calculate', [RateCalculatorController::class, 'calculate']);
 
+        // Platform availability (read-only, any authenticated user)
+        Route::get('platforms', [AdminPlatformController::class, 'index']);
+
         // Limit Extension Request
         Route::post('limit/request', [LimitExtensionController::class, 'store']);
 
@@ -142,6 +146,15 @@ Route::prefix('v1')->group(function () {
             Route::get('/',           [AdminLimitController::class, 'index']);
             Route::post('{id}/approve', [AdminLimitController::class, 'approve']);
             Route::post('{id}/reject',  [AdminLimitController::class, 'reject']);
+        });
+
+        // Rate Sheet Management (weekly xlsx upload)
+        Route::prefix('rates')->group(function () {
+            Route::get('/',              [AdminRateController::class, 'index']);
+            Route::post('upload',        [AdminRateController::class, 'upload']);
+            Route::get('{id}/status',    [AdminRateController::class, 'status']);
+            Route::post('{id}/activate', [AdminRateController::class, 'activate']);
+            Route::delete('{id}',        [AdminRateController::class, 'destroy']);
         });
 
         // Platform Toggle (enable/disable Overseas API, Shiprocket)

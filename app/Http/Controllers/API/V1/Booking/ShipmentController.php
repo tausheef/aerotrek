@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\V1\Booking;
 
+use App\Exceptions\PlatformDisabledException;
 use App\Exceptions\ShipmentLimitReachedException;
 use App\Http\Controllers\Controller;
 use App\Models\Shipment;
@@ -40,6 +41,12 @@ class ShipmentController extends Controller
                 data:    ['otp_sent' => $result['success']],
                 message: 'OTP sent to your registered phone number.'
             );
+        } catch (PlatformDisabledException $e) {
+            return response()->json([
+                'success'    => false,
+                'message'    => $e->getMessage(),
+                'error_code' => 'PLATFORM_DISABLED',
+            ], 503);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
@@ -75,6 +82,12 @@ class ShipmentController extends Controller
                 data:    ['transaction_id' => $result['transaction_id']],
                 message: 'OTP verified successfully.'
             );
+        } catch (PlatformDisabledException $e) {
+            return response()->json([
+                'success'    => false,
+                'message'    => $e->getMessage(),
+                'error_code' => 'PLATFORM_DISABLED',
+            ], 503);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
@@ -170,6 +183,12 @@ class ShipmentController extends Controller
                 'message'    => $e->getMessage(),
                 'error_code' => 'SHIPMENT_LIMIT_REACHED',
             ], 403);
+        } catch (PlatformDisabledException $e) {
+            return response()->json([
+                'success'    => false,
+                'message'    => $e->getMessage(),
+                'error_code' => 'PLATFORM_DISABLED',
+            ], 503);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }

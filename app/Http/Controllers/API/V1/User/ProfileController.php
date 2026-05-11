@@ -64,21 +64,22 @@ class ProfileController extends Controller
         $file    = $request->file('avatar');
         $storage = new StorageService();
 
-        $path = $storage->uploadProfilePicture((string) $user->id, $file);
-        $url  = $storage->url($path);
+        $path   = $storage->uploadProfilePicture((string) $user->id, $file);
+        $tempUrl = $storage->temporaryUrl($path, 60 * 24 * 7);
 
-        $user->update(['avatar_url' => $url]);
+        // Store the path so UserResource can always generate a fresh pre-signed URL.
+        $user->update(['avatar_url' => $path]);
 
         Media::create([
             'file_name'   => basename($path),
             'file_path'   => $path,
-            'file_url'    => $url,
+            'file_url'    => $path,
             'file_type'   => 'image',
             'mime_type'   => $file->getMimeType(),
             'file_size'   => $file->getSize(),
             'uploaded_by' => (string) $user->id,
         ]);
 
-        return $this->successResponse(data: ['avatar_url' => $url], message: 'Avatar updated.');
+        return $this->successResponse(data: ['avatar_url' => $tempUrl], message: 'Avatar updated.');
     }
 }

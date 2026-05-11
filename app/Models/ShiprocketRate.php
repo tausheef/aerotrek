@@ -8,5 +8,5 @@ class ShiprocketRate extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['country_code', 'weight', 'service', 'rate'];
+    protected $fillable = ['upload_id', 'country_code', 'weight', 'service', 'rate'];
 }

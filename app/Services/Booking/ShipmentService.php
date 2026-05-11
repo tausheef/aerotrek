@@ -2,6 +2,7 @@
 
 namespace App\Services\Booking;
 
+use App\Exceptions\PlatformDisabledException;
 use App\Models\Kyc;
 use App\Models\Shipment;
 use App\Models\SiteSetting;
@@ -29,7 +30,7 @@ class ShipmentService
     public function sendDhlOtp(User $user, array $bookingData): array
     {
         if (SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
-            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
+            throw new PlatformDisabledException('Overseas API');
         }
 
         $kyc = $this->getUserKyc($user);
@@ -52,7 +53,7 @@ class ShipmentService
     public function verifyDhlOtp(User $user, array $bookingData, string $otp): array
     {
         if (SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
-            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
+            throw new PlatformDisabledException('Overseas API');
         }
 
         $kyc = $this->getUserKyc($user);
@@ -222,11 +223,11 @@ class ShipmentService
     private function checkPlatformEnabled(string $platform): void
     {
         if ($platform === 'overseas' && SiteSetting::get('platform_overseas_enabled', '1') !== '1') {
-            throw new \Exception('Overseas API is currently disabled by admin. Please try again later.');
+            throw new PlatformDisabledException('Overseas API');
         }
 
         if ($platform === 'shiprocket' && SiteSetting::get('platform_shiprocket_enabled', '1') !== '1') {
-            throw new \Exception('Shiprocket is currently disabled by admin. Please try again later.');
+            throw new PlatformDisabledException('Shiprocket');
         }
     }
 

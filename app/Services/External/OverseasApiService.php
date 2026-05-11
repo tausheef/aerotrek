@@ -322,13 +322,18 @@ class OverseasApiService
             'consignee'    => $data['Consignee'] ?? null,
             'forwarder'    => $data['Forwarder'] ?? null,
             'forwarding_no'=> $data['ForwardingNo'] ?? null,
-            'events'       => array_map(fn($event) => [
-                'date'        => $event['EventDate'] ?? null,
-                'time'        => $event['EventTime'] ?? null,
-                'code'        => $event['EventCode'] ?? null,
-                'description' => $event['EventDescription'] ?? null,
-                'location'    => $event['Location'] ?? null,
-            ], $events),
+            'events'       => array_map(function ($event) {
+                // EventDate may arrive as "2026-04-30T00:00:00" — extract date only
+                $datePart = substr($event['EventDate'] ?? '', 0, 10); // "2026-04-30"
+                $time     = $event['EventTime'] ?? '';
+                $timestamp = $datePart . ($time ? ' ' . $time : '');
+                return [
+                    'timestamp'   => $timestamp ?: null,
+                    'status'      => null,
+                    'description' => $event['EventDescription'] ?? null,
+                    'location'    => $event['Location'] ?? null,
+                ];
+            }, $events),
         ];
     }
 }
