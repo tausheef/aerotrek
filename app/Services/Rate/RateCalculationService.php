@@ -3,6 +3,7 @@
 namespace App\Services\Rate;
 
 use App\Models\CarrierRate;
+use App\Models\PostcodeZone;
 use App\Models\RateUpload;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -10,8 +11,32 @@ use Illuminate\Support\Facades\DB;
 class RateCalculationService
 {
     // ── DB rate cache (keyed by upload_id, reset when upload changes) ─────────
-    private static ?int  $cachedUploadId = null;
-    private static array $dbRates        = [];  // [carrier][sub_type][zone_key][weight_key]
+    private static ?int  $cachedUploadId    = null;
+    private static array $dbRates           = [];  // [carrier][sub_type][zone_key][weight_key]
+    private static array $postcodeZoneCache = [];  // [carrier][postcode] = zone_key
+
+    // ── Canada postal FSA first-letter → approximate zone (YYZ-hub routing) ──
+    // Zone 1 = Toronto downtown (closest), Zone 13 = Territories/far west
+    private const CANADA_FSA_ZONE = [
+        'M' => 'zone1',  // Toronto (downtown)
+        'L' => 'zone2',  // Greater Toronto Area
+        'K' => 'zone3',  // Ottawa / Kingston
+        'N' => 'zone4',  // Southwestern Ontario (London, Windsor)
+        'P' => 'zone5',  // Northern Ontario
+        'H' => 'zone6',  // Montreal
+        'G' => 'zone7',  // Quebec City / Eastern Quebec
+        'J' => 'zone8',  // Western Quebec / Laurentians
+        'E' => 'zone9',  // New Brunswick
+        'B' => 'zone10', // Nova Scotia
+        'C' => 'zone11', // Prince Edward Island
+        'A' => 'zone11', // Newfoundland
+        'R' => 'zone12', // Manitoba
+        'S' => 'zone12', // Saskatchewan
+        'T' => 'zone13', // Alberta
+        'V' => 'zone13', // British Columbia (has its own YVR service)
+        'X' => 'zone13', // NWT / Nunavut
+        'Y' => 'zone13', // Yukon
+    ];
 
     // ── UPS: country_code → zone_key ─────────────────────────────────────────
     private const UPS_COUNTRY_COLUMN = [
@@ -129,6 +154,68 @@ class RateCalculationService
         'TG' => 'q', 'TN' => 'q',
     ];
 
+    // ── ARAMEX: country_code → [{zone, name}] (multiple service tiers per country) ─
+    private const ARAMEX_COUNTRY_ZONES = [
+        'AE' => [
+            ['zone' => 'uae_ppx', 'name' => 'Aramex Priority UAE (PPX)'],
+            ['zone' => 'uae_dpx', 'name' => 'Aramex Express UAE (DPX)'],
+        ],
+        'AU' => [
+            ['zone' => 'au_ppx_metro', 'name' => 'Aramex Australia (PPX)'],
+            ['zone' => 'au_dpx_metro', 'name' => 'Aramex Australia (DPX)'],
+        ],
+        'BH' => [
+            ['zone' => 'bh_kw_ppx', 'name' => 'Aramex Priority Bahrain (PPX)'],
+            ['zone' => 'bh_kw_dpx', 'name' => 'Aramex Express Bahrain (DPX)'],
+        ],
+        'KW' => [
+            ['zone' => 'bh_kw_ppx', 'name' => 'Aramex Priority Kuwait (PPX)'],
+            ['zone' => 'bh_kw_dpx', 'name' => 'Aramex Express Kuwait (DPX)'],
+        ],
+        'OM' => [
+            ['zone' => 'oman_ppx', 'name' => 'Aramex Priority Oman (PPX)'],
+            ['zone' => 'oman_gpx', 'name' => 'Aramex Ground Oman (GPX)'],
+        ],
+        'QA' => [
+            ['zone' => 'qatar_ppx', 'name' => 'Aramex Priority Qatar (PPX)'],
+        ],
+        'SA' => [
+            ['zone' => 'sa_ppx', 'name' => 'Aramex Priority Saudi Arabia (PPX)'],
+            ['zone' => 'sa_dpx', 'name' => 'Aramex Express Saudi Arabia (DPX)'],
+        ],
+    ];
+
+    // ── EU_SELF: country_code → zone_key (EU via LHR zone structure) ─────────
+    private const EU_SELF_COUNTRY_ZONE = [
+        // Zone 1 — Benelux (closest to UK transit hub)
+        'BE' => 'zone1', 'NL' => 'zone1', 'LU' => 'zone1',
+        // Zone 2 — Germany, France
+        'DE' => 'zone2', 'FR' => 'zone2',
+        // Zone 3 — Austria, Switzerland, Italy, Spain
+        'AT' => 'zone3', 'CH' => 'zone3', 'IT' => 'zone3', 'ES' => 'zone3',
+        // Zone 4 — Nordics, Portugal, Ireland
+        'SE' => 'zone4', 'DK' => 'zone4', 'NO' => 'zone4', 'FI' => 'zone4',
+        'PT' => 'zone4', 'IE' => 'zone4',
+        // Zone 5 — Central/Eastern Europe
+        'PL' => 'zone5', 'CZ' => 'zone5', 'HU' => 'zone5', 'SK' => 'zone5',
+        'RO' => 'zone5', 'SI' => 'zone5', 'HR' => 'zone5',
+        // Zone 6 — Baltics, Bulgaria, southern EU
+        'EE' => 'zone6', 'LV' => 'zone6', 'LT' => 'zone6', 'BG' => 'zone6',
+        'GR' => 'zone6', 'CY' => 'zone6', 'MT' => 'zone6',
+        // Zone 7 — Non-EU/remote European destinations
+        'AL' => 'zone7', 'RS' => 'zone7', 'ME' => 'zone7', 'MK' => 'zone7',
+        'BA' => 'zone7', 'XK' => 'zone7', 'IS' => 'zone7', 'MC' => 'zone7',
+        'SM' => 'zone7', 'AD' => 'zone7', 'LI' => 'zone7', 'GI' => 'zone7',
+    ];
+
+    // ── DPEX_SELF: country_code → zone_key ───────────────────────────────────
+    private const DPEX_SELF_COUNTRY_ZONE = [
+        'SG' => 'sg_direct',
+        'MY' => 'my_kl',
+        'TW' => 'tw_direct',
+        'VN' => 'vn_direct',
+    ];
+
     // ── DHL: country_code → zone_key ─────────────────────────────────────────
     private const DHL_COUNTRY_ZONE = [
         'BD' => 'zone1', 'BT' => 'zone1', 'MV' => 'zone1', 'NP' => 'zone1', 'LK' => 'zone1', 'AE' => 'zone1',
@@ -203,6 +290,14 @@ class RateCalculationService
                     $this->getUPSRates($countryCode, $chargeableWeight, $shipmentType),
                     $this->getFedExRates($countryCode, $chargeableWeight, $shipmentType),
                     $this->getDHLRates($countryCode, $chargeableWeight, $shipmentType),
+                    $this->getAramexRates($countryCode, $chargeableWeight, $shipmentType),
+                    $this->getCanadaSelfRates($countryCode, $chargeableWeight, $postcode),
+                    $this->getEuSelfRates($countryCode, $chargeableWeight),
+                    $this->getUkSelfRates($countryCode, $chargeableWeight),
+                    $this->getAuSelfRates($countryCode, $chargeableWeight, $postcode),
+                    $this->getNzSelfRates($countryCode, $chargeableWeight, $postcode),
+                    $this->getUaeSelfRates($countryCode, $chargeableWeight),
+                    $this->getDpexSelfRates($countryCode, $chargeableWeight),
                 );
             }
             // No rates if no upload has been done yet
@@ -242,8 +337,9 @@ class RateCalculationService
     {
         if (self::$cachedUploadId === $uploadId) return;
 
-        self::$dbRates        = [];
-        self::$cachedUploadId = $uploadId;
+        self::$dbRates           = [];
+        self::$postcodeZoneCache = [];
+        self::$cachedUploadId    = $uploadId;
 
         $rows = CarrierRate::where('upload_id', $uploadId)
             ->get(['carrier', 'sub_type', 'zone_key', 'weight_key', 'rate', 'is_per_kg'])
@@ -256,6 +352,24 @@ class RateCalculationService
                 'is_per_kg' => $row['is_per_kg'],
             ];
         }
+
+        // Load postcode→zone maps for all SELF carriers in one query
+        $pzRows = PostcodeZone::where('upload_id', $uploadId)
+            ->get(['carrier', 'postcode', 'zone_key'])
+            ->toArray();
+
+        foreach ($pzRows as $row) {
+            self::$postcodeZoneCache[$row['carrier']][$row['postcode']] = $row['zone_key'];
+        }
+    }
+
+    // Normalise postcode and look it up in the in-memory cache.
+    // Strips leading zeros so "0505" and "505" both match the stored "505".
+    private function lookupPostcodeZone(string $carrier, ?string $postcode): ?string
+    {
+        if (!$postcode) return null;
+        $key = ltrim(trim($postcode), '0') ?: '0';
+        return self::$postcodeZoneCache[$carrier][$key] ?? null;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -414,6 +528,286 @@ class RateCalculationService
             'service_name'       => 'DHL Express',
             'estimated_delivery' => $this->dhlETA($zone),
         ]];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ARAMEX
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function getAramexRates(string $countryCode, float $chargeable, string $shipmentType): array
+    {
+        $zoneServices = self::ARAMEX_COUNTRY_ZONES[$countryCode] ?? [];
+        if (empty($zoneServices)) return [];
+
+        $rates = [];
+        $slabW = ceil($chargeable * 2) / 2;
+        $isDoc = $shipmentType === 'Document';
+
+        foreach ($zoneServices as ['zone' => $zoneKey, 'name' => $serviceName]) {
+            if ($slabW <= 0.5) {
+                $sub   = $isDoc ? 'document' : 'non_document';
+                $entry = self::$dbRates['ARAMEX'][$sub][$zoneKey]['0.5']
+                      ?? self::$dbRates['ARAMEX']['__any__'][$zoneKey]['0.5']
+                      ?? null;
+            } else {
+                $entry = $this->lookupSelfRate('ARAMEX', $zoneKey, $chargeable);
+            }
+
+            if (!$entry) continue;
+
+            $rate    = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+            $rates[] = [
+                'carrier'            => 'Aramex',
+                'network'            => 'ARAMEX',
+                'service_code'       => 'ARAMEX_' . strtoupper($zoneKey),
+                'platform'           => 'overseas',
+                'requires_otp'       => false,
+                'shipment_type'      => $shipmentType,
+                'chargeable_weight'  => $chargeable,
+                'rate'               => $rate,
+                'currency'           => 'INR',
+                'service_name'       => $serviceName,
+                'estimated_delivery' => '3-5 business days',
+            ];
+        }
+
+        return $rates;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SELF carriers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function getCanadaSelfRates(string $countryCode, float $chargeable, ?string $postcode): array
+    {
+        if ($countryCode !== 'CA') return [];
+
+        // Derive zone from FSA first letter (Canadian postal code format: A1A 1A1)
+        $firstLetter = strtoupper(substr(trim((string)$postcode), 0, 1));
+        $zoneKey     = self::CANADA_FSA_ZONE[$firstLetter] ?? 'zone1';
+
+        $entry = $this->lookupSelfRate('CANADA_SELF', $zoneKey, $chargeable);
+        if (!$entry) return [];
+
+        $rate = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+        return [[
+            'carrier'            => 'AeroTrek Canada',
+            'network'            => 'CANADA_SELF',
+            'service_code'       => 'CANADA_SELF',
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => 'Non-Document',
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'AeroTrek Canada Express',
+            'estimated_delivery' => '7-10 business days',
+        ]];
+    }
+
+    private function getEuSelfRates(string $countryCode, float $chargeable): array
+    {
+        $zoneKey = self::EU_SELF_COUNTRY_ZONE[$countryCode] ?? null;
+        if (!$zoneKey) return [];
+
+        $entry = $this->lookupSelfRate('EU_SELF', $zoneKey, $chargeable);
+        if (!$entry) return [];
+
+        $rate = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+        return [[
+            'carrier'            => 'AeroTrek EU',
+            'network'            => 'EU_SELF',
+            'service_code'       => 'EU_SELF_' . strtoupper($zoneKey),
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => 'Non-Document',
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'AeroTrek EU Express (via London)',
+            'estimated_delivery' => '5-7 business days',
+        ]];
+    }
+
+    private function getUkSelfRates(string $countryCode, float $chargeable): array
+    {
+        if ($countryCode !== 'GB') return [];
+
+        $entry = $this->lookupSelfRate('UK_SELF', 'uk', $chargeable);
+        if (!$entry) return [];
+
+        $rate = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+        return [[
+            'carrier'            => 'AeroTrek UK',
+            'network'            => 'UK_SELF',
+            'service_code'       => 'UK_SELF',
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => 'Non-Document',
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'AeroTrek UK Express',
+            'estimated_delivery' => '5-7 business days',
+        ]];
+    }
+
+    private function getAuSelfRates(string $countryCode, float $chargeable, ?string $postcode): array
+    {
+        if ($countryCode !== 'AU') return [];
+
+        $rates = [];
+
+        $auZone = $this->lookupPostcodeZone('AU_SELF', $postcode) ?? 'zone1';
+        $entry  = $this->lookupSelfRate('AU_SELF', $auZone, $chargeable);
+        if ($entry) {
+            $rate    = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+            $rates[] = [
+                'carrier'            => 'AeroTrek Australia',
+                'network'            => 'AU_SELF',
+                'service_code'       => 'AU_SELF',
+                'platform'           => 'overseas',
+                'requires_otp'       => false,
+                'shipment_type'      => 'Non-Document',
+                'chargeable_weight'  => $chargeable,
+                'rate'               => $rate,
+                'currency'           => 'INR',
+                'service_name'       => 'AeroTrek Australia Express',
+                'estimated_delivery' => '5-8 business days',
+            ];
+        }
+
+        $dpexZone = $this->lookupPostcodeZone('AU_DPEX_SELF', $postcode) ?? 'zone1';
+        $entry    = $this->lookupSelfRate('AU_DPEX_SELF', $dpexZone, $chargeable);
+        if ($entry) {
+            $rate    = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+            $rates[] = [
+                'carrier'            => 'DPEX Australia',
+                'network'            => 'AU_DPEX_SELF',
+                'service_code'       => 'AU_DPEX_SELF',
+                'platform'           => 'overseas',
+                'requires_otp'       => false,
+                'shipment_type'      => 'Non-Document',
+                'chargeable_weight'  => $chargeable,
+                'rate'               => $rate,
+                'currency'           => 'INR',
+                'service_name'       => 'DPEX Australia Express',
+                'estimated_delivery' => '5-8 business days',
+            ];
+        }
+
+        return $rates;
+    }
+
+    private function getNzSelfRates(string $countryCode, float $chargeable, ?string $postcode): array
+    {
+        if ($countryCode !== 'NZ') return [];
+
+        $zoneKey = $this->lookupPostcodeZone('NZ_SELF', $postcode) ?? 'zone1';
+        $entry   = $this->lookupSelfRate('NZ_SELF', $zoneKey, $chargeable);
+        if (!$entry) return [];
+
+        $rate = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+        return [[
+            'carrier'            => 'AeroTrek New Zealand',
+            'network'            => 'NZ_SELF',
+            'service_code'       => 'NZ_SELF',
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => 'Non-Document',
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'AeroTrek New Zealand Express',
+            'estimated_delivery' => '7-10 business days',
+        ]];
+    }
+
+    private function getUaeSelfRates(string $countryCode, float $chargeable): array
+    {
+        if ($countryCode !== 'AE') return [];
+
+        $entry = $this->lookupSelfRate('UAE_SELF', 'uae', $chargeable);
+        if (!$entry) return [];
+
+        $rate = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+        return [[
+            'carrier'            => 'AeroTrek UAE',
+            'network'            => 'UAE_SELF',
+            'service_code'       => 'UAE_SELF',
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => 'Non-Document',
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'AeroTrek UAE Express',
+            'estimated_delivery' => '3-5 business days',
+        ]];
+    }
+
+    private function getDpexSelfRates(string $countryCode, float $chargeable): array
+    {
+        $zoneKey = self::DPEX_SELF_COUNTRY_ZONE[$countryCode] ?? null;
+        if (!$zoneKey) return [];
+
+        $entry = $this->lookupSelfRate('DPEX_SELF', $zoneKey, $chargeable);
+        if (!$entry) return [];
+
+        $rate = $entry['is_per_kg'] ? (int)round($entry['rate'] * $chargeable) : $entry['rate'];
+        return [[
+            'carrier'            => 'DPEX',
+            'network'            => 'DPEX_SELF',
+            'service_code'       => 'DPEX_' . $countryCode,
+            'platform'           => 'overseas',
+            'requires_otp'       => false,
+            'shipment_type'      => 'Non-Document',
+            'chargeable_weight'  => $chargeable,
+            'rate'               => $rate,
+            'currency'           => 'INR',
+            'service_name'       => 'DPEX Express',
+            'estimated_delivery' => '3-5 business days',
+        ]];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Generic SELF rate lookup
+    // Finds the smallest numeric slab >= chargeable weight; falls back to
+    // the largest per-kg band whose threshold is <= chargeable weight.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function lookupSelfRate(string $carrier, string $zoneKey, float $chargeable): ?array
+    {
+        $pool = self::$dbRates[$carrier]['__any__'][$zoneKey] ?? [];
+        if (empty($pool)) return null;
+
+        $slabW   = ceil($chargeable * 2) / 2;
+        $bestKey = null;
+        $bestKg  = PHP_FLOAT_MAX;
+
+        // Find smallest numeric slab >= slabW
+        foreach ($pool as $key => $val) {
+            if (!str_ends_with((string)$key, '+') && (float)$key >= $slabW && (float)$key < $bestKg) {
+                $bestKey = $key;
+                $bestKg  = (float)$key;
+            }
+        }
+        if ($bestKey !== null) return $pool[$bestKey];
+
+        // Fall back to largest per-kg band whose threshold is <= slabW
+        $bestKey = null;
+        $bestKg  = 0.0;
+        foreach ($pool as $key => $val) {
+            if (str_ends_with((string)$key, '+')) {
+                $kg = (float)rtrim((string)$key, '+');
+                if ($kg <= $slabW && $kg > $bestKg) {
+                    $bestKey = $key;
+                    $bestKg  = $kg;
+                }
+            }
+        }
+
+        return $bestKey !== null ? $pool[$bestKey] : null;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

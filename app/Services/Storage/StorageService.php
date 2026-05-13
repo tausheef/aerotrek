@@ -73,6 +73,20 @@ class StorageService
     }
 
     /**
+     * Upload a raw PDF (binary string) to storage and return the public URL.
+     */
+    public function uploadRawPdf(string $path, string $pdfContent): string
+    {
+        $tempPath = sys_get_temp_dir() . '/' . basename($path);
+        file_put_contents($tempPath, $pdfContent);
+
+        $stored = $this->driver->upload($path, new \Illuminate\Http\File($tempPath));
+        unlink($tempPath);
+
+        return $this->driver->url($stored);
+    }
+
+    /**
      * Upload any media file to a given folder.
      * Returns ['path', 'url', 'file_name'].
      */

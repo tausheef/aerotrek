@@ -52,8 +52,9 @@ class AdminKycController extends Controller
         $kyc = Kyc::with('user:id,name,email,phone')->findOrFail($id);
 
         return $this->successResponse(data: [
-            'kyc'          => $kyc,
-            'document_url' => $kyc->document_image ? $this->storage->temporaryUrl($kyc->document_image, 60) : null,
+            'kyc'           => $kyc,
+            'document_url'  => $kyc->document_image  ? $this->storage->temporaryUrl($kyc->document_image,  60) : null,
+            'signature_url' => $kyc->signature_image ? $this->storage->temporaryUrl($kyc->signature_image, 60) : null,
         ]);
     }
 

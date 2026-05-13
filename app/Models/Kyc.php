@@ -16,6 +16,7 @@ class Kyc extends Model
         'document_type',
         'document_number',
         'document_image',
+        'signature_image',
         'status',
         'rejection_reason',
         'verified_by',

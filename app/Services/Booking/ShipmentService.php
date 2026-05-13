@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\External\OverseasApiService;
 use App\Services\External\ShiprocketApiService;
 use App\Services\Shipment\AerotrekIdGenerator;
+use App\Services\Shipment\AerotrekInvoiceService;
 use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,10 +19,11 @@ use Illuminate\Support\Facades\Storage;
 class ShipmentService
 {
     public function __construct(
-        private OverseasApiService  $overseas,
+        private OverseasApiService   $overseas,
         private ShiprocketApiService $shiprocket,
-        private WalletService       $wallet,
-        private AerotrekIdGenerator $idGenerator,
+        private WalletService        $wallet,
+        private AerotrekIdGenerator  $idGenerator,
+        private AerotrekInvoiceService $invoiceService,
     ) {}
 
     /**
@@ -134,8 +136,11 @@ class ShipmentService
             'receiver'          => $receiver,
             'packages'          => $data['packages'],
             'products'          => $data['products'],
-            'invoice_no'        => $data['invoice_no'] ?? 'INV-' . time(),
+            'invoice_no'        => $data['invoice_no'] ?? $aerotrekId,
             'invoice_date'      => $data['invoice_date'] ?? now()->format('Y-m-d\TH:i:s\Z'),
+            'invoice_currency'  => strtoupper($data['invoice_currency'] ?? 'INR'),
+            'terms_of_sale'     => $data['terms_of_sale'] ?? 'FOB',
+            'csb_type'          => $data['csb_type'] ?? 'CSB 4',
             'duty_tax'          => $data['duty_tax'] ?? 'DDU',
             'reason_for_export' => $data['reason_for_export'] ?? 'GIFT',
             'transaction_id'    => $data['transaction_id'] ?? null,
@@ -146,7 +151,7 @@ class ShipmentService
         try {
             $response = $platform === 'shiprocket'
                 ? $this->bookViaShinprocket($aerotrekId, $data, $sender, $receiver)
-                : $this->bookViaOverseas($data, $sender, $receiver, $kyc);
+                : $this->bookViaOverseas($data, $sender, $receiver, $kyc, $aerotrekId, $user);
         } catch (\Exception $e) {
             $shipment->update(['status' => 'failed']);
             throw $e;
@@ -194,7 +199,16 @@ class ShipmentService
             throw new \Exception('Shipment was created with the carrier but payment processing failed. Our support team has been notified.');
         }
 
-        return $shipment->fresh();
+        $shipment->refresh();
+
+        // Generate AeroTrek invoice PDF — non-fatal if it fails
+        $invoiceUrl = $this->invoiceService->generate($shipment);
+        if ($invoiceUrl) {
+            $shipment->update(['invoice_url' => $invoiceUrl]);
+            $shipment->refresh();
+        }
+
+        return $shipment;
     }
 
     // ── Platform routing ──────────────────────────────────────────────
@@ -255,27 +269,51 @@ class ShipmentService
         ];
     }
 
-    private function bookViaOverseas(array $data, array $sender, array $receiver, $kyc): array
+    private function bookViaOverseas(array $data, array $sender, array $receiver, $kyc, string $aerotrekId, User $user): array
     {
+        $products = $data['products'] ?? [];
+
+        $invoiceCurrency = strtoupper($data['invoice_currency'] ?? 'INR');
+        $threshold       = $user->account_type === 'company' ? 50000 : 25000;
+
+        if (isset($data['total_value_inr']) && $data['total_value_inr'] !== null) {
+            // Frontend already converted to INR — most accurate path
+            $totalValue = (float) $data['total_value_inr'];
+            $csbType    = $totalValue > $threshold ? 'CSB 5' : ($data['csb_type'] ?? 'CSB 4');
+        } elseif ($invoiceCurrency === 'INR') {
+            // INR invoice — safe to sum directly
+            $totalValue = collect($products)->sum(fn($p) => ($p['qty'] ?? 1) * ($p['unit_rate'] ?? 0));
+            $csbType    = $totalValue > $threshold ? 'CSB 5' : ($data['csb_type'] ?? 'CSB 4');
+        } else {
+            // Non-INR without exchange rate — cannot verify threshold, force CSB 5 (safe default)
+            $csbType = 'CSB 5';
+        }
+
         $shipmentData = [
-            'sender'             => $sender,
-            'receiver'           => $receiver,
-            'service_code'       => $data['service_code'],
-            'goods_type'         => $data['goods_type'] === 'Document' ? 'Dox' : 'NDox',
-            'package_type'       => $data['package_type'] ?? 'PACKAGE',
-            'packages'           => $data['packages'],
-            'products'           => $data['products'],
-            'invoice_no'         => $data['invoice_no'] ?? 'INV-' . time(),
-            'invoice_date'       => $data['invoice_date'] ?? now()->format('Y-m-d\TH:i:s\Z'),
-            'invoice_currency'   => 'INR',
-            'terms_of_sale'      => $data['terms_of_sale'] ?? 'FOB',
-            'reason_for_export'  => $data['reason_for_export'] ?? 'GIFT',
-            'duty_tax'           => $data['duty_tax'] ?? 'DDU',
-            'transaction_id'     => $data['transaction_id'] ?? '',
-            'shipper_kyc_base64' => $this->getKycImageBase64($kyc),
-            'kyc_filename'       => $kyc->document_type . '.pdf',
-            'freight_charge'     => 0,
-            'insurance_charge'   => 0,
+            'sender'                => $sender,
+            'receiver'              => $receiver,
+            'service_code'          => $data['service_code'],
+            'goods_type'            => $data['goods_type'] === 'Document' ? 'Dox' : 'NDox',
+            'package_type'          => $data['package_type'] ?? 'PACKAGE',
+            'packages'              => $data['packages'],
+            'products'              => $products,
+            'invoice_no'            => $data['invoice_no'] ?? 'INV-' . time(),
+            'invoice_date'          => isset($data['invoice_date'])
+                ? \Carbon\Carbon::parse($data['invoice_date'])->format('Y-m-d\TH:i:s\Z')
+                : now()->format('Y-m-d\TH:i:s\Z'),
+            'invoice_currency'      => strtoupper($data['invoice_currency'] ?? 'INR'),
+            'terms_of_sale'         => $data['terms_of_sale'] ?? 'FOB',
+            'reason_for_export'     => $data['reason_for_export'] ?? 'GIFT',
+            'duty_tax'              => $data['duty_tax'] ?? 'DDU',
+            'duties_account_no'     => '',
+            'transaction_id'        => $data['transaction_id'] ?? '',
+            'shipper_kyc_base64'    => $this->getKycImageBase64($kyc),
+            'kyc_filename'          => $kyc->document_type . '.pdf',
+            'freight_charge'        => 0,
+            'insurance_charge'      => 0,
+            'csb_type'              => $csbType,
+            'customer_ref_no'       => $aerotrekId,
+            'delivery_confirmation' => 'Email',
         ];
 
         $response = $this->overseas->createShipment($shipmentData);

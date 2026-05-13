@@ -137,7 +137,7 @@ class ManualBookingController extends Controller
                     ],
                     'packages'          => $request->packages,
                     'products'          => $request->products ?? [],
-                    'invoice_no'        => $request->invoice_no,
+                    'invoice_no'        => $request->invoice_no ?? $aerotrekId,
                     'invoice_date'      => $request->invoice_date,
                     'notes'             => $request->notes,
                     'tracking_events'   => [],

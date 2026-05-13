@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\CarrierRate;
+use App\Models\PostcodeZone;
 use App\Models\RateUpload;
 use App\Models\ShiprocketRate;
 use App\Services\Rate\RateSheetParser;
@@ -47,7 +48,15 @@ class ProcessRateSheetJob implements ShouldQueue
                 $upload->update(['processed_rows' => $processed]);
             }
 
-            // ── 2. Shiprocket rates (43k rows — streamed in 500-row chunks) ──
+            // ── 2. Postcode → zone lookups (AU_SELF, AU_DPEX_SELF, NZ_SELF) ───
+            $postcodeBatch = $parser->parsePostcodeZones();
+            foreach (array_chunk($postcodeBatch, 500) as $chunk) {
+                PostcodeZone::insert($chunk);
+                $processed += count($chunk);
+                $upload->update(['processed_rows' => $processed]);
+            }
+
+            // ── 3. Shiprocket rates (43k rows — streamed in 500-row chunks) ──
             foreach ($parser->parseShiprocketRates() as $chunk) {
                 ShiprocketRate::insert($chunk);
                 $processed += count($chunk);
@@ -81,6 +90,7 @@ class ProcessRateSheetJob implements ShouldQueue
         } catch (\Throwable $e) {
             // Insertion may be partial — delete orphaned rows for this upload
             CarrierRate::where('upload_id', $this->uploadId)->delete();
+            PostcodeZone::where('upload_id', $this->uploadId)->delete();
             ShiprocketRate::where('upload_id', $this->uploadId)->delete();
 
             $upload->update([

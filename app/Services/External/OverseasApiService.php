@@ -247,7 +247,8 @@ class OverseasApiService
                 'ProductDetails' => array_map(fn($item) => [
                     'BoxNo'          => $item['box_no'] ?? '1',
                     'Description'    => $item['description'],
-                    'HSNCode'        => $item['hsn_code'],
+                    'HSNCode'        => $item['hsn_code'] ?? '',
+                    'HTSCode'        => $item['hts_code'] ?? '',
                     'UnitType'       => $item['unit_type'] ?? 'PCS',
                     'Qty'            => $item['qty'],
                     'UnitRate'       => $item['unit_rate'],

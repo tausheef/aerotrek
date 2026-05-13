@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Shipment;
+use App\Services\Shipment\AerotrekInvoiceService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 class AdminShipmentController extends Controller
 {
     use ApiResponse;
+
+    public function __construct(private AerotrekInvoiceService $invoiceService) {}
 
     /**
      * GET /api/v1/admin/shipments/manual
@@ -130,8 +133,17 @@ class AdminShipmentController extends Controller
             'tracking_updated_at' => now(),
         ]);
 
+        $shipment->refresh();
+
+        // Generate AeroTrek invoice PDF now that AWB is known
+        $invoiceUrl = $this->invoiceService->generate($shipment);
+        if ($invoiceUrl) {
+            $shipment->update(['invoice_url' => $invoiceUrl]);
+            $shipment->refresh();
+        }
+
         return $this->successResponse(
-            data:    ['shipment' => $shipment->fresh()],
+            data:    ['shipment' => $shipment],
             message: 'Booking info updated. Status set to booked.'
         );
     }

@@ -6,6 +6,7 @@ use App\Http\Controllers\API\V1\Booking\ShipmentController;
 use App\Http\Controllers\API\V1\CMS\CmsController;
 use App\Http\Controllers\API\V1\KYC\KycController;
 use App\Http\Controllers\API\V1\Media\MediaController;
+use App\Http\Controllers\API\V1\Rate\ExchangeRateController;
 use App\Http\Controllers\API\V1\Rate\RateCalculatorController;
 use App\Http\Controllers\API\V1\Tracking\TrackingController;
 use App\Http\Controllers\API\V1\User\AddressController;
@@ -44,6 +45,9 @@ Route::prefix('v1')->group(function () {
 
     // Public Tracking — accepts ATK ID, AWB no, or platform ref ID
     Route::get('tracking/{identifier}', [TrackingController::class, 'track']);
+
+    // Exchange Rate — cached 6h, no auth needed
+    Route::get('exchange-rate/{currency}', [ExchangeRateController::class, 'show']);
 
     // PayU webhooks — no token (PayU calls these)
     Route::post('wallet/payment/success', [WalletController::class, 'paymentSuccess']);

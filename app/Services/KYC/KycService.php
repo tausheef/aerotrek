@@ -18,7 +18,7 @@ class KycService
     /**
      * Submit KYC — called when user submits documents.
      */
-    public function submit(User $user, array $data, $documentFile): Kyc
+    public function submit(User $user, array $data, $documentFile, $signatureFile): Kyc
     {
         // Delete existing pending KYC if any
         Kyc::where('user_id', $user->id)
@@ -32,6 +32,13 @@ class KycService
             file:         $documentFile
         );
 
+        // Upload signature image
+        $signaturePath = $this->storage->uploadKycDocument(
+            userId:       (string) $user->id,
+            documentType: 'signature',
+            file:         $signatureFile
+        );
+
         // Create KYC record
         $kyc = Kyc::create([
             'user_id'         => (string) $user->id,
@@ -39,6 +46,7 @@ class KycService
             'document_type'   => $data['document_type'],
             'document_number' => strtoupper($data['document_number']),
             'document_image'  => $imagePath,
+            'signature_image' => $signaturePath,
             'status'          => 'pending',
             'verification_driver' => 'manual',
         ]);

@@ -129,6 +129,16 @@ class ShipmentController extends Controller
             'packages.*.height'    => ['required', 'numeric'],
             'packages.*.weight'    => ['required', 'numeric'],
 
+            // Customs
+            'duty_tax'             => ['nullable', 'in:DDU,DDP'],
+            'terms_of_sale'        => ['nullable', 'in:DAP,DDU,FOB,C&F,CIF'],
+            'reason_for_export'    => ['nullable', 'in:SALE,GIFT,RETURN,SAMPLE'],
+            'csb_type'             => ['nullable', 'in:CSB 4,CSB 5'],
+            'invoice_no'           => ['nullable', 'string'],
+            'invoice_date'         => ['nullable', 'date'],
+            'invoice_currency'     => ['nullable', 'string', 'size:3'],
+            'total_value_inr'      => ['nullable', 'numeric', 'min:0'],
+
             // Products — required only for Non-Document shipments
             'products' => Rule::when(
                 $request->goods_type === 'Non-Document',
@@ -137,6 +147,7 @@ class ShipmentController extends Controller
             ),
             'products.*.description' => ['required_if:goods_type,Non-Document', 'string'],
             'products.*.hsn_code'    => ['required_if:goods_type,Non-Document', 'string'],
+            'products.*.hts_code'    => ['nullable', 'string'],
             'products.*.qty'         => ['required_if:goods_type,Non-Document', 'integer'],
             'products.*.unit_rate'   => ['required_if:goods_type,Non-Document', 'numeric'],
 

@@ -70,6 +70,7 @@ class KycController extends Controller
             'document_type'   => ['required', 'string', 'in:' . implode(',', $allowedDocs)],
             'document_number' => ['required', 'string', 'min:5', 'max:30'],
             'document_image'  => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'signature_image' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
         ]);
 
         // Block if already verified
@@ -78,9 +79,10 @@ class KycController extends Controller
         }
 
         $kyc = $this->kycService->submit(
-            user:         $user,
-            data:         $request->only('document_type', 'document_number'),
-            documentFile: $request->file('document_image')
+            user:          $user,
+            data:          $request->only('document_type', 'document_number'),
+            documentFile:  $request->file('document_image'),
+            signatureFile: $request->file('signature_image')
         );
 
         return $this->successResponse(
