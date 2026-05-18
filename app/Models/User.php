@@ -61,6 +61,11 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return [];
     }
 
+    public function shipments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Shipment::class, 'user_id');
+    }
+
     public function isKycVerified(): bool
     {
         return $this->kyc_status === 'verified';

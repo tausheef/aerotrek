@@ -55,7 +55,7 @@ class ManualBookingController extends Controller
             'receiver_address_line1'  => ['required', 'string', 'max:255'],
             'receiver_address_line2'  => ['nullable', 'string', 'max:255'],
             'receiver_city'           => ['required', 'string', 'max:100'],
-            'receiver_state'          => ['required', 'string', 'max:100'],
+            'receiver_state'          => ['nullable', 'string', 'max:100'],
             'receiver_zipcode'        => ['required', 'string', 'max:20'],
             'receiver_country_code'   => ['required', 'string', 'size:2'],
             'receiver_phone'          => ['required', 'string', 'max:20'],
@@ -87,11 +87,14 @@ class ManualBookingController extends Controller
         }
 
         // Wallet check (only when a price is submitted with the request)
-        if ($request->price && $user->balanceFloat < $request->price) {
-            return $this->errorResponse(
-                'Insufficient wallet balance. Current balance: ₹' . $user->balanceFloat,
-                400
-            );
+        if ($request->price) {
+            $balance = (float) ($user->wallet?->balanceFloat ?? 0);
+            if ($balance < (float) $request->price) {
+                return $this->errorResponse(
+                    'Insufficient wallet balance. Current balance: ₹' . number_format($balance, 2),
+                    400
+                );
+            }
         }
 
         try {
@@ -130,7 +133,7 @@ class ManualBookingController extends Controller
                         'address_line1' => $request->receiver_address_line1,
                         'address_line2' => $request->receiver_address_line2 ?? '',
                         'city'          => $request->receiver_city,
-                        'state'         => $request->receiver_state,
+                        'state'         => $request->receiver_state ?? '',
                         'zipcode'       => $request->receiver_zipcode,
                         'country_code'  => strtoupper($request->receiver_country_code),
                         'phone'         => $request->receiver_phone,

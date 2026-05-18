@@ -115,6 +115,6 @@ class WalletService
 
     public function getBalance(User $user): float
     {
-        return (float) $user->balanceFloat;
+        return (float) $user->wallet->balanceFloat;
     }
 }

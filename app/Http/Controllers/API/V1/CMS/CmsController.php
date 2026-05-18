@@ -35,7 +35,8 @@ class CmsController extends Controller
     // GET /api/v1/cms/blog
     public function getBlogPosts(Request $request): JsonResponse
     {
-        $posts = BlogPost::published()
+        $posts = BlogPost::with('category')
+            ->published()
             ->when($request->category, fn($q) =>
                 $q->whereHas('category', fn($q2) =>
                     $q2->where('slug', $request->category)
@@ -50,7 +51,7 @@ class CmsController extends Controller
     // GET /api/v1/cms/blog/{slug}
     public function getBlogPost(string $slug): JsonResponse
     {
-        $post = BlogPost::published()->where('slug', $slug)->first();
+        $post = BlogPost::with('category')->published()->where('slug', $slug)->first();
 
         if (! $post) {
             return $this->errorResponse('Blog post not found.', 404);

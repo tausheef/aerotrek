@@ -65,33 +65,49 @@ class ProcessRateSheetJob implements ShouldQueue
 
             // ── 3. Atomic swap: activate new, supersede old ──────────────────
             DB::transaction(function () use ($upload) {
-                RateUpload::where('status', 'active')->update(['status' => 'superseded']);
+                // Scope supersede + cleanup to same user_id (null = global)
+                $scope = fn($q) => $upload->user_id
+                    ? $q->where('user_id', $upload->user_id)
+                    : $q->whereNull('user_id');
+
+                $scope(RateUpload::where('status', 'active'))->update(['status' => 'superseded']);
 
                 $upload->update([
-                    'status'       => 'active',
-                    'activated_at' => now(),
+                    'status'         => 'active',
+                    'activated_at'   => now(),
                     'processed_rows' => $upload->total_rows,
                 ]);
 
-                // Keep only the 3 most-recent completed uploads; cascade-delete older ones
-                $keepIds = RateUpload::whereIn('status', ['active', 'superseded'])
+                // Keep only the 3 most-recent uploads for this scope
+                $keepIds = $scope(RateUpload::whereIn('status', ['active', 'superseded']))
                     ->latest('activated_at')
                     ->take(3)
                     ->pluck('id');
 
-                RateUpload::whereNotIn('id', $keepIds)
-                    ->where('status', 'superseded')
-                    ->delete();
+                $scope(RateUpload::whereNotIn('id', $keepIds)->where('status', 'superseded'))->delete();
             });
 
             // ── 4. Bust rate cache so the service picks up new data ───────────
-            Cache::forget('active_rate_upload_id');
+            $upload->user_id
+                ? Cache::forget("active_rate_upload_id_user_{$upload->user_id}")
+                : Cache::forget('active_rate_upload_id');
+
+            // ── 5. Delete raw file — data is now in DB, file no longer needed ─
+            if ($upload->filename && Storage::disk('local')->exists($upload->filename)) {
+                Storage::disk('local')->delete($upload->filename);
+                $upload->update(['filename' => null]);
+            }
 
         } catch (\Throwable $e) {
             // Insertion may be partial — delete orphaned rows for this upload
             CarrierRate::where('upload_id', $this->uploadId)->delete();
             PostcodeZone::where('upload_id', $this->uploadId)->delete();
             ShiprocketRate::where('upload_id', $this->uploadId)->delete();
+
+            if ($upload->filename && Storage::disk('local')->exists($upload->filename)) {
+                Storage::disk('local')->delete($upload->filename);
+                $upload->update(['filename' => null]);
+            }
 
             $upload->update([
                 'status'        => 'failed',

@@ -274,13 +274,14 @@ class RateCalculationService
         ?string $postcode     = null,
         int     $packageCount = 1,
         string  $serviceType  = 'standard',
+        ?string $userId       = null,
     ): array {
         $volumetricWeight = $this->getVolumetricWeight($length, $breadth, $height);
         $chargeableWeight = $volumetricWeight
             ? max($actualWeight, $volumetricWeight)
             : $actualWeight;
 
-        $uploadId = $this->getActiveUploadId();
+        $uploadId = $this->getActiveUploadId($userId);
         $rates    = [];
 
         if ($serviceType === 'standard') {
@@ -322,10 +323,23 @@ class RateCalculationService
     // Active upload ID — cached 60 s; busted immediately on new upload
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function getActiveUploadId(): ?int
+    private function getActiveUploadId(?string $userId = null): ?int
     {
+        if ($userId) {
+            $userUploadId = Cache::remember("active_rate_upload_id_user_{$userId}", 60, function () use ($userId) {
+                return RateUpload::where('status', 'active')
+                    ->where('user_id', $userId)
+                    ->latest('activated_at')
+                    ->value('id');
+            });
+            if ($userUploadId) return $userUploadId;
+        }
+
         return Cache::remember('active_rate_upload_id', 60, function () {
-            return RateUpload::where('status', 'active')->latest('activated_at')->value('id');
+            return RateUpload::where('status', 'active')
+                ->whereNull('user_id')
+                ->latest('activated_at')
+                ->value('id');
         });
     }
 
@@ -520,7 +534,7 @@ class RateCalculationService
             'network'            => 'DHL',
             'service_code'       => 'DHL_EXPRESS',
             'platform'           => 'overseas',
-            'requires_otp'       => false,
+            'requires_otp'       => true,
             'shipment_type'      => $shipmentType,
             'chargeable_weight'  => $chargeable,
             'rate'               => $rate,
@@ -823,7 +837,7 @@ class RateCalculationService
         $outerFilter = $uploadId ? "AND sr.upload_id = {$uploadId}" : "AND sr.upload_id IS NULL";
 
         $rows = DB::select(
-            "SELECT sr.service, sr.rate
+            "SELECT sr.service, MIN(sr.rate) AS rate, sr.courier_company_id
              FROM shiprocket_rates sr
              INNER JOIN (
                  SELECT service, MIN(weight) AS min_w
@@ -833,7 +847,8 @@ class RateCalculationService
              ) best ON sr.service = best.service
                     AND sr.weight  = best.min_w
                     AND sr.country_code = ? {$outerFilter}
-             ORDER BY sr.rate ASC",
+             GROUP BY sr.service, sr.courier_company_id
+             ORDER BY rate ASC",
             [$countryCode, $srWeight, $countryCode]
         );
 
@@ -849,6 +864,7 @@ class RateCalculationService
             'currency'           => 'INR',
             'service_name'       => $row->service,
             'estimated_delivery' => $this->srETA($row->service),
+            'courier_company_id' => $row->courier_company_id ? (int)$row->courier_company_id : null,
         ], $rows);
     }
 

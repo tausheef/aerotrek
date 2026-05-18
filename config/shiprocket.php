@@ -6,6 +6,7 @@ return [
     'email'           => env('SHIPROCKET_EMAIL'),
     'password'        => env('SHIPROCKET_PASSWORD'),
     'pickup_location' => env('SHIPROCKET_PICKUP_LOCATION', 'Primary'),
+    'pickup_pincode'  => env('SHIPROCKET_PICKUP_PINCODE'),
 
     /*
     |--------------------------------------------------------------------------

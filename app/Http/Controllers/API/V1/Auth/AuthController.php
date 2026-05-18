@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\Email\OtpService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Tymon\JWTAuth\Facades\JWTAuth;
@@ -15,6 +16,8 @@ use Tymon\JWTAuth\Exceptions\JWTException;
 class AuthController extends Controller
 {
     use ApiResponse;
+
+    public function __construct(private readonly OtpService $otpService) {}
 
     // POST /api/v1/auth/register
     public function register(RegisterRequest $request): JsonResponse
@@ -34,6 +37,16 @@ class AuthController extends Controller
 
         $token = JWTAuth::fromUser($user);
 
+        try {
+            $this->otpService->sendOtp($user->email, $user->name);
+        } catch (\Throwable $e) {
+            // Account created — don't block registration if email fails
+            \Illuminate\Support\Facades\Log::warning('OTP send failed on register', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
         return $this->successResponse(
             data: [
                 'user'         => new UserResource($user),
@@ -41,7 +54,7 @@ class AuthController extends Controller
                 'token_type'   => 'bearer',
                 'expires_in'   => config('jwt.ttl') * 60,
             ],
-            message: 'Registration successful.',
+            message: 'Registration successful. Please verify your email to continue.',
             statusCode: 201
         );
     }

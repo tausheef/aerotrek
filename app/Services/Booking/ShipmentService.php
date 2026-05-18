@@ -84,11 +84,8 @@ class ShipmentService
         $kyc        = $this->getUserKyc($user);
         $aerotrekId = $this->idGenerator->generate($user);
 
-        if ($user->balanceFloat < $data['price']) {
-            throw new \Exception('Insufficient wallet balance. Please recharge your wallet.');
-        }
-
         $sender = [
+            'user_id'        => $user->id,
             'name'           => $user->name,
             'contact_person' => $user->name,
             'address_line1'  => $data['sender_address_line1'],
@@ -108,12 +105,13 @@ class ShipmentService
             'address_line1'  => $data['receiver_address_line1'],
             'address_line2'  => $data['receiver_address_line2'] ?? '',
             'city'           => $data['receiver_city'],
-            'state'          => $data['receiver_state'],
+            'state'          => $data['receiver_state'] ?? '',
             'zipcode'        => $data['receiver_zipcode'],
             'country_code'   => $data['receiver_country_code'],
             'phone'          => $data['receiver_phone'],
             'email'          => $data['receiver_email'] ?? '',
             'vat_id'         => $data['receiver_vat_id'] ?? '',
+            'isd_code'       => $data['receiver_isd_code'] ?? '',
         ];
 
         // Pre-save shipment before touching any external API.
@@ -150,11 +148,26 @@ class ShipmentService
         // No wallet is touched at this point.
         try {
             $response = $platform === 'shiprocket'
-                ? $this->bookViaShinprocket($aerotrekId, $data, $sender, $receiver)
+                ? $this->bookViaShiprocket($aerotrekId, $data, $sender, $receiver)
                 : $this->bookViaOverseas($data, $sender, $receiver, $kyc, $aerotrekId, $user);
         } catch (\Exception $e) {
             $shipment->update(['status' => 'failed']);
-            throw $e;
+            Log::error('Carrier booking failed', [
+                'platform'    => $platform,
+                'aerotrek_id' => $aerotrekId,
+                'user_id'     => $user->id,
+                'error'       => $e->getMessage(),
+            ]);
+
+            // Surface the carrier's actual message when it's a clean upstream
+            // message (e.g. "Courier is facing some issues, Please try after
+            // sometime."), so the user knows to retry vs. bail.
+            $msg = $e->getMessage();
+            if (str_starts_with($msg, 'Shiprocket:') || str_starts_with($msg, 'Overseas:')) {
+                throw new \Exception($msg);
+            }
+
+            throw new \Exception('Carrier booking failed. Please try again, choose a different service, or use Manual Booking.');
         }
 
         // Wallet deduction + shipment confirmation must succeed or fail together.
@@ -219,14 +232,19 @@ class ShipmentService
      */
     private function resolvePlatform(array $data): string
     {
-        // service_type comes from frontend booking form
+        // Primary: service_type set by frontend
         $serviceType = strtolower($data['service_type'] ?? '');
 
         if (in_array($serviceType, ['ecommerce', 'india_post'])) {
             return 'shiprocket';
         }
 
-        // Legacy fallback: check carrier name
+        // Secondary: network field from the selected rate
+        if (strtoupper($data['network'] ?? '') === 'SHIPROCKET') {
+            return 'shiprocket';
+        }
+
+        // Tertiary: carrier name list
         if (in_array($data['carrier'] ?? '', config('shiprocket.carriers', []))) {
             return 'shiprocket';
         }
@@ -247,11 +265,12 @@ class ShipmentService
 
     // ── Platform-specific booking calls ──────────────────────────────
 
-    private function bookViaShinprocket(string $aerotrekId, array $data, array $sender, array $receiver): array
+    private function bookViaShiprocket(string $aerotrekId, array $data, array $sender, array $receiver): array
     {
         $response = $this->shiprocket->createShipment($aerotrekId, array_merge($data, [
-            'sender'   => $sender,
-            'receiver' => $receiver,
+            'sender'             => $sender,
+            'receiver'           => $receiver,
+            'courier_company_id' => $data['courier_company_id'] ?? null,
         ]));
 
         if (! $response['success']) {

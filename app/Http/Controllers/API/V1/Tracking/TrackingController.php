@@ -52,18 +52,20 @@ class TrackingController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            if ($shipment && $shipment->tracking_events) {
+            if ($shipment) {
+                $hasCached = ! empty($shipment->tracking_events);
                 return $this->successResponse(
                     data: [
                         'aerotrek_id' => $shipment->aerotrek_id,
                         'awb_no'      => $shipment->awb_no,
                         'carrier'     => $shipment->carrier,
+                        'service'     => $shipment->service_name,
                         'status'      => $shipment->status,
-                        'events'      => $shipment->tracking_events,
-                        'cached'      => true,
+                        'events'      => $shipment->tracking_events ?? [],
+                        'cached'      => $hasCached,
                         'cached_at'   => $shipment->tracking_updated_at,
                     ],
-                    message: 'Showing cached tracking data.'
+                    message: $hasCached ? 'Showing cached tracking data.' : null
                 );
             }
 
@@ -82,7 +84,17 @@ class TrackingController extends Controller
             return $this->shiprocket->trackShipment($awb);
         }
 
-        return $this->overseas->trackShipment($awb);
+        // For Overseas shipments or AWBs not found in the DB:
+        // try Overseas first; if that fails and the shipment is unknown,
+        // fall back to Shiprocket so Shiprocket AWBs still get tracked.
+        try {
+            return $this->overseas->trackShipment($awb);
+        } catch (\Exception $e) {
+            if (! $shipment) {
+                return $this->shiprocket->trackShipment($awb);
+            }
+            throw $e;
+        }
     }
 
     private function mapStatus(array $events): string

@@ -91,7 +91,7 @@ class AdminCmsController extends Controller
     // GET /api/v1/admin/cms/blog
     public function indexBlog(): JsonResponse
     {
-        $posts = BlogPost::orderBy('created_at', 'desc')->get();
+        $posts = BlogPost::with('category')->orderBy('created_at', 'desc')->get();
         return $this->successResponse(data: ['posts' => $posts]);
     }
 
@@ -102,7 +102,9 @@ class AdminCmsController extends Controller
             'title'          => 'required|string|max:200',
             'content'        => 'required|string',
             'category_id'    => 'nullable|string',
-            'featured_image' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            'featured_image' => $request->hasFile('featured_image')
+                ? 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120'
+                : 'nullable|string',
         ]);
 
         $post = BlogPost::create([
@@ -127,7 +129,9 @@ class AdminCmsController extends Controller
         $post = BlogPost::findOrFail($id);
 
         $request->validate([
-            'featured_image' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            'featured_image' => $request->hasFile('featured_image')
+                ? 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120'
+                : 'nullable|string',
         ]);
 
         $post->update([

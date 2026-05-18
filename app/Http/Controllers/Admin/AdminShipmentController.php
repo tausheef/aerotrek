@@ -196,6 +196,14 @@ class AdminShipmentController extends Controller
         $query = Shipment::with('user:id,name,email')
             ->orderBy('created_at', 'desc');
 
+        if ($request->search) {
+            $term = trim($request->search);
+            $query->where(function ($q) use ($term) {
+                $q->where('aerotrek_id', 'like', "%{$term}%")
+                  ->orWhere('awb_no', 'like', "%{$term}%");
+            });
+        }
+
         if ($request->status) {
             $query->byStatus($request->status);
         }

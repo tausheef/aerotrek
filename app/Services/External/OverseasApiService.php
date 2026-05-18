@@ -278,7 +278,9 @@ class OverseasApiService
         $response = $this->request('post', '/api/shipment/create', $payload);
 
         if (! ($response['Status'] ?? false)) {
-            throw new \Exception('Shipment creation failed: ' . ($response['Error'] ?? 'Unknown error'));
+            $apiError = $response['Error'] ?? $response['Message'] ?? 'Unknown error';
+            Log::error('Overseas API shipment creation failed', ['error' => $apiError, 'response' => $response]);
+            throw new \Exception('Carrier booking failed: ' . $apiError);
         }
 
         $data = $response['Data'] ?? [];

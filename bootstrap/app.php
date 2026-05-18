@@ -18,9 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
 
         $middleware->alias([
-            'jwt.auth'     => \App\Http\Middleware\JwtMiddleware::class,
-            'jwt.admin'    => \App\Http\Middleware\AdminMiddleware::class,
-            'kyc.verified' => \App\Http\Middleware\CheckKycStatus::class,
+            'jwt.auth'       => \App\Http\Middleware\JwtMiddleware::class,
+            'jwt.admin'      => \App\Http\Middleware\AdminMiddleware::class,
+            'kyc.verified'   => \App\Http\Middleware\CheckKycStatus::class,
+            'email.verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
         ]);
 
         // Removed statefulApi() — we use JWT not Sanctum

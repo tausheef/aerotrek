@@ -113,7 +113,7 @@ class AdminRateController extends Controller
             return $this->errorResponse('Only superseded or active uploads can be activated.', 422);
         }
 
-        RateUpload::where('status', 'active')->update(['status' => 'superseded']);
+        RateUpload::where('status', 'active')->whereNull('user_id')->update(['status' => 'superseded']);
 
         $upload->update([
             'status'       => 'active',

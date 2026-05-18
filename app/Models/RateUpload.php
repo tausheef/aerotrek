@@ -10,7 +10,7 @@ class RateUpload extends Model
     protected $fillable = [
         'filename', 'original_name', 'status',
         'processed_rows', 'total_rows', 'error_message',
-        'uploaded_by', 'activated_at',
+        'uploaded_by', 'user_id', 'activated_at',
     ];
 
     protected $casts = [

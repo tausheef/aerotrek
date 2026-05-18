@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\V1\Auth\AuthController;
+use App\Http\Controllers\API\V1\Auth\EmailVerificationController;
 use App\Http\Controllers\API\V1\Booking\ManualBookingController;
 use App\Http\Controllers\API\V1\Booking\ShipmentController;
 use App\Http\Controllers\API\V1\CMS\CmsController;
@@ -19,6 +20,8 @@ use App\Http\Controllers\Admin\AdminLimitController;
 use App\Http\Controllers\Admin\AdminPlatformController;
 use App\Http\Controllers\Admin\AdminShipmentController;
 use App\Http\Controllers\Admin\AdminRateController;
+use App\Http\Controllers\Admin\AdminUserRateController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -61,9 +64,11 @@ Route::prefix('v1')->group(function () {
 
         // Auth
         Route::prefix('auth')->group(function () {
-            Route::post('logout',  [AuthController::class, 'logout']);
-            Route::post('refresh', [AuthController::class, 'refresh']);
-            Route::get('me',       [AuthController::class, 'me']);
+            Route::post('logout',        [AuthController::class, 'logout']);
+            Route::post('refresh',       [AuthController::class, 'refresh']);
+            Route::get('me',             [AuthController::class, 'me']);
+            Route::post('email/verify',  [EmailVerificationController::class, 'verify']);
+            Route::post('email/resend',  [EmailVerificationController::class, 'resend']);
         });
 
         // Profile & Addresses
@@ -75,20 +80,25 @@ Route::prefix('v1')->group(function () {
             Route::post('addresses',             [AddressController::class, 'store']);
             Route::put('addresses/{id}',         [AddressController::class, 'update']);
             Route::delete('addresses/{id}',      [AddressController::class, 'destroy']);
-            Route::put('addresses/{id}/default', [AddressController::class, 'setDefault']);
+            Route::put('addresses/{id}/default',              [AddressController::class, 'setDefault']);
+            Route::post('addresses/{id}/verify-pickup-otp',   [AddressController::class, 'verifyPickupOtp']);
+            Route::post('addresses/{id}/resend-pickup-otp',   [AddressController::class, 'resendPickupOtp']);
+            Route::post('addresses/{id}/refresh-pickup-status', [AddressController::class, 'refreshPickupStatus']);
         });
 
         // KYC
         Route::prefix('kyc')->group(function () {
-            Route::get('/',       [KycController::class, 'status']);
-            Route::post('submit', [KycController::class, 'submit']);
+            Route::get('/', [KycController::class, 'status']);
+            // submit requires verified email
+            Route::post('submit', [KycController::class, 'submit'])->middleware('email.verified');
         });
 
         // Wallet
         Route::prefix('wallet')->group(function () {
             Route::get('/',            [WalletController::class, 'balance']);
             Route::get('transactions', [WalletController::class, 'transactions']);
-            Route::post('recharge',    [WalletController::class, 'recharge']);
+            // recharge requires verified email
+            Route::post('recharge', [WalletController::class, 'recharge'])->middleware('email.verified');
         });
 
         // Rate Calculator
@@ -100,8 +110,8 @@ Route::prefix('v1')->group(function () {
         // Limit Extension Request
         Route::post('limit/request', [LimitExtensionController::class, 'store']);
 
-        // Shipment Booking (KYC verified required)
-        Route::prefix('shipments')->middleware('kyc.verified')->group(function () {
+        // Shipment Booking (email + KYC verified required)
+        Route::prefix('shipments')->middleware(['email.verified', 'kyc.verified'])->group(function () {
             Route::get('/',              [ShipmentController::class, 'index']);
             Route::get('{id}',           [ShipmentController::class, 'show']);
             Route::post('book',          [ShipmentController::class, 'book']);
@@ -118,6 +128,13 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['jwt.auth', 'jwt.admin'])->prefix('admin')->group(function () {
 
         Route::get('dashboard', [DashboardController::class, 'index']);
+
+        // User Management
+        Route::prefix('users')->group(function () {
+            Route::get('/',                       [AdminUserController::class, 'index']);
+            Route::get('{id}',                    [AdminUserController::class, 'show']);
+            Route::post('{id}/wallet/credit',     [AdminUserController::class, 'walletCredit']);
+        });
 
         // Media Management
         Route::prefix('media')->group(function () {
@@ -159,6 +176,16 @@ Route::prefix('v1')->group(function () {
             Route::get('{id}/status',    [AdminRateController::class, 'status']);
             Route::post('{id}/activate', [AdminRateController::class, 'activate']);
             Route::delete('{id}',        [AdminRateController::class, 'destroy']);
+
+            // Special rates — per-user overrides
+            Route::prefix('special')->group(function () {
+                Route::get('search',                   [AdminUserRateController::class, 'searchUser']);
+                Route::post('upload',                  [AdminUserRateController::class, 'upload']);
+                Route::get('user/{userId}',            [AdminUserRateController::class, 'userUploads']);
+                Route::get('{id}/status',              [AdminUserRateController::class, 'status']);
+                Route::post('{id}/activate',           [AdminUserRateController::class, 'activate']);
+                Route::delete('{id}',                  [AdminUserRateController::class, 'destroy']);
+            });
         });
 
         // Platform Toggle (enable/disable Overseas API, Shiprocket)

@@ -265,21 +265,23 @@ class RateSheetParser
         $batch = [];
 
         for ($r = 8; $r <= $highestRow; $r++) {
-            $countryCode = trim((string)$sheet->getCell("A{$r}")->getCalculatedValue());
-            $weight      = $sheet->getCell("C{$r}")->getCalculatedValue();
-            $service     = trim((string)$sheet->getCell("D{$r}")->getCalculatedValue());
-            $rate        = $sheet->getCell("E{$r}")->getCalculatedValue();
+            $countryCode      = trim((string)$sheet->getCell("A{$r}")->getCalculatedValue());
+            $weight           = $sheet->getCell("C{$r}")->getCalculatedValue();
+            $service          = trim((string)$sheet->getCell("D{$r}")->getCalculatedValue());
+            $rate             = $sheet->getCell("E{$r}")->getCalculatedValue();
+            $courierCompanyId = $sheet->getCell("F{$r}")->getCalculatedValue();
 
             if ($countryCode === '' || $weight === null || !is_numeric($weight)) {
                 continue;
             }
 
             $batch[] = [
-                'upload_id'    => $this->uploadId,
-                'country_code' => $countryCode,
-                'weight'       => (float)$weight,
-                'service'      => $service,
-                'rate'         => (int)round((float)$rate),
+                'upload_id'          => $this->uploadId,
+                'country_code'       => $countryCode,
+                'weight'             => (float)$weight,
+                'service'            => $service,
+                'rate'               => (int)round((float)$rate),
+                'courier_company_id' => is_numeric($courierCompanyId) ? (int)$courierCompanyId : null,
             ];
 
             if (count($batch) >= 500) {

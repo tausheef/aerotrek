@@ -117,7 +117,7 @@ class ShipmentController extends Controller
             'receiver_name'           => ['required', 'string'],
             'receiver_address_line1'  => ['required', 'string'],
             'receiver_city'           => ['required', 'string'],
-            'receiver_state'          => ['required', 'string'],
+            'receiver_state'          => ['nullable', 'string'],
             'receiver_zipcode'        => ['required', 'string'],
             'receiver_country_code'   => ['required', 'string', 'size:2'],
             'receiver_phone'          => ['required', 'string'],
@@ -153,6 +153,15 @@ class ShipmentController extends Controller
 
             // DHL only
             'transaction_id'       => ['nullable', 'string'],
+
+            // Shiprocket-specific
+            'purpose_of_shipment'   => ['nullable', 'integer', 'min:0'],
+            'reason_of_export_code' => ['nullable', 'integer', 'min:1'],
+            'is_insurance_opt'      => ['nullable', 'boolean'],
+            'ioss'                  => ['nullable', 'string', 'max:50'],
+            'eori'                  => ['nullable', 'string', 'max:50'],
+            'receiver_isd_code'     => ['nullable', 'string', 'max:10'],
+            'courier_company_id'    => ['nullable', 'integer', 'min:1'],
         ]);
 
         $user = JWTAuth::user();
@@ -162,10 +171,11 @@ class ShipmentController extends Controller
             return $this->errorResponse('KYC verification required before booking.', 403);
         }
 
-        // Check wallet
-        if ($user->balanceFloat < $request->price) {
+        // Check wallet — read from wallet relationship for consistency with /api/v1/wallet
+        $balance = (float) ($user->wallet?->balanceFloat ?? 0);
+        if ($balance < (float) $request->price) {
             return $this->errorResponse(
-                'Insufficient wallet balance. Current balance: ₹' . $user->balanceFloat,
+                'Insufficient wallet balance. Current balance: ₹' . number_format($balance, 2),
                 400
             );
         }
@@ -177,13 +187,11 @@ class ShipmentController extends Controller
                 data: [
                     'shipment'       => $shipment,
                     'aerotrek_id'    => $shipment->aerotrek_id,
-                    'platform'       => $shipment->platform,
-                    'platform_ref_id'=> $shipment->platform_ref_id,
                     'awb_no'         => $shipment->awb_no,
                     'tracking_no'    => $shipment->tracking_no,
                     'label_url'      => $shipment->label_url,
                     'invoice_url'    => $shipment->invoice_url,
-                    'wallet_balance' => $user->fresh()->balanceFloat,
+                    'wallet_balance' => (float) ($user->fresh()->wallet?->balanceFloat ?? 0),
                 ],
                 message: 'Shipment booked successfully!',
                 statusCode: 201
@@ -201,7 +209,7 @@ class ShipmentController extends Controller
                 'error_code' => 'PLATFORM_DISABLED',
             ], 503);
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+            return $this->errorResponse($e->getMessage(), 502);
         }
     }
 

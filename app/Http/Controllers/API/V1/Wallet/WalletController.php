@@ -90,28 +90,30 @@ class WalletController extends Controller
 
     /**
      * POST /api/v1/wallet/payment/success
-     * PayU success webhook — called by PayU after payment.
-     * NOTE: This is a public route — no JWT needed.
+     * PayU posts to this after payment — browser is redirected here.
+     * Verifies hash, credits wallet, then redirects to frontend.
+     * NOTE: Public route — no JWT needed.
      */
-    public function paymentSuccess(Request $request): JsonResponse
+    public function paymentSuccess(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $success = $this->walletService->handleCallback($request->all());
+        $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:5173'), '/');
+        $success     = $this->walletService->handleCallback($request->all());
 
-        if ($success) {
-            return $this->successResponse(message: 'Wallet credited successfully.');
-        }
+        $status = $success ? 'success' : 'failed';
 
-        return $this->errorResponse('Payment verification failed.', 400);
+        return redirect()->away("{$frontendUrl}/dashboard/wallet?recharge={$status}");
     }
 
     /**
      * POST /api/v1/wallet/payment/failure
-     * PayU failure webhook.
-     * NOTE: This is a public route — no JWT needed.
+     * PayU posts here on failure — browser is redirected here.
+     * NOTE: Public route — no JWT needed.
      */
-    public function paymentFailure(Request $request): JsonResponse
+    public function paymentFailure(Request $request): \Illuminate\Http\RedirectResponse
     {
         $this->walletService->handleFailure($request->all());
-        return $this->errorResponse('Payment failed.', 400);
+        $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:5173'), '/');
+
+        return redirect()->away("{$frontendUrl}/dashboard/wallet?recharge=failed");
     }
 }

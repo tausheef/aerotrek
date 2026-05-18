@@ -19,7 +19,7 @@ class AdminLimitController extends Controller
             ->latest()
             ->paginate(20);
 
-        return $this->successResponse(data: $requests);
+        return $this->successResponse(data: ['requests' => $requests]);
     }
 
     public function approve(Request $request, int $id): JsonResponse
